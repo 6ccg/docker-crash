@@ -81,6 +81,16 @@ docker compose up -d
 
 宿主机数据目录需要允许容器用户 `1000:1000` 写入。
 
+空 `/data` 首次启动时，容器会自动创建基础目录和配置文件。如果没有订阅链接，也没有
+`/data/yamls/config.yaml` 或 `/data/jsons/config.json`，容器会保持运行但不会启动核心。
+此时可以进入容器导入配置：
+
+```shell
+docker exec -it shellcrash crash
+```
+
+导入配置后重启容器即可启动核心。
+
 需要保留的主要内容包括：
 
 - `/data/configs/`：ShellCrash 配置、运行参数、面板保存配置。
