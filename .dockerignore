@@ -1,0 +1,8 @@
+.git
+.github
+data
+backups
+*.tar
+*.tgz
+*.log
+debug.log

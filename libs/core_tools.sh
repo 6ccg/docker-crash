@@ -57,6 +57,7 @@ core_check(){
 		else
 			mv -f "$TMPDIR/core_new" "$TMPDIR/CrashCore"
 		fi
+		[ "$systype" = 'container' ] && cp -f "$TMPDIR/CrashCore" "$BINDIR/CrashCore" 2>/dev/null
 		core_v="$v"
 		setconfig COMMAND "$COMMAND" "$CRASHDIR"/configs/command.env && . "$CRASHDIR"/configs/command.env
 		setconfig crashcore "$crashcore"

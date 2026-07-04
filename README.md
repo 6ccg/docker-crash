@@ -38,13 +38,15 @@
 示例：
 
 ```shell
+mkdir -p data
 docker run -d \
   --name shellcrash \
-  -v shellcrash-data:/etc/ShellCrash \
+  --user 1000:1000 \
+  -v "$(pwd)/data:/data" \
   -p 7890:7890/tcp \
   -p 7890:7890/udp \
   -p 9999:9999/tcp \
-  <image> /etc/ShellCrash/start.sh start
+  ghcr.io/6ccg/docker-crash:latest
 ```
 
 如果不用默认端口，需要先在 `configs/ShellCrash.cfg` 中调整 `mix_port` 和
@@ -52,41 +54,44 @@ docker run -d \
 
 ## 持久化目录
 
-容器内默认工作目录是：
+容器内项目目录是：
 
 ```shell
 /etc/ShellCrash
 ```
 
-也可以通过环境变量或启动前导出的 `CRASHDIR` 指定其他目录。为了让重建容器后继续使用
-上次配置、核心、订阅和规则文件，必须持久化 `CRASHDIR`。
-
-推荐使用 named volume 挂载整个 `CRASHDIR`：
+运行数据目录是：
 
 ```shell
--v shellcrash-data:/etc/ShellCrash
+/data
 ```
 
-如果使用宿主机 bind mount，例如：
+为了让重建容器后继续使用上次配置、核心、订阅和规则文件，必须持久化 `/data`。
+推荐使用当前仓库里的 `docker-compose.yml`：
 
 ```shell
--v /opt/shellcrash:/etc/ShellCrash
+docker compose up -d
 ```
 
-则 `/opt/shellcrash` 目录本身必须已经包含本项目文件；空目录 bind mount 会覆盖镜像内的
-`/etc/ShellCrash`，导致脚本入口不存在。
+或者手动挂载：
+
+```shell
+-v /opt/shellcrash-data:/data
+```
+
+宿主机数据目录需要允许容器用户 `1000:1000` 写入。
 
 需要保留的主要内容包括：
 
-- `configs/`：ShellCrash 配置、运行参数、面板保存配置。
-- `yamls/`：Clash/mihomo 配置、覆写、规则和自定义节点。
-- `jsons/`：sing-box 配置覆写。
-- `ruleset/`：规则集文件。
-- `ui/`：本地 Web 面板文件。
-- `task/`：自定义任务脚本。
-- `tools/`：本地工具文件。
-- `CrashCore.gz`、`CrashCore.tar.gz`、`CrashCore.upx`：已下载的核心包。
-- `Country.mmdb`、`GeoSite.dat`：Geo 数据文件。
+- `/data/configs/`：ShellCrash 配置、运行参数、面板保存配置。
+- `/data/yamls/`：Clash/mihomo 配置、覆写、规则和自定义节点。
+- `/data/jsons/`：sing-box 配置覆写。
+- `/data/ruleset/`：规则集文件。
+- `/data/ui/`：本地 Web 面板文件。
+- `/data/task/`：自定义任务脚本。
+- `/data/tools/`：本地工具文件。
+- `/data/CrashCore.gz`、`/data/CrashCore.tar.gz`、`/data/CrashCore.upx`：已下载的核心包。
+- `/data/Country.mmdb`、`/data/GeoSite.dat`：Geo 数据文件。
 
 `TMPDIR` 默认是 `/tmp/ShellCrash`，只作为运行时临时目录，不要求持久化。
 
