@@ -3,6 +3,7 @@
 #$1日志内容$2显示颜色$3是否推送$4是否覆盖上一条
 logger() { 
 	TMPDIR=/tmp/ShellCrash
+    mkdir -p "$TMPDIR" 2>/dev/null
     [ -n "$2" -a "$2" != 0 ] && printf "\033[%sm%s\033[0m\n" "$2" "$1"
     log_text="$(date "+%G-%m-%d_%H:%M:%S")~$1"
 	[ "$4" = on ] && sed -i "/$1/d" "$TMPDIR"/ShellCrash.log

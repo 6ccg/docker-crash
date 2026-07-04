@@ -24,6 +24,63 @@ afstart(){
 stop_firewall(){
 	"$CRASHDIR"/starts/fw_stop.sh
 }
+is_container(){
+    [ "$systype" = "container" ]
+}
+require_container(){
+    is_container && return 0
+    logger "当前版本仅支持 Docker 运行！" 31
+    exit 1
+}
+is_macvlan_mode(){
+    [ "$firewall_area" = "5" ]
+}
+is_container_proxy(){
+    is_container && ! is_macvlan_mode
+}
+container_after_start(){
+    sleep 2
+    [ -s "$CRASHDIR"/configs/web_save ] && {
+        . "$CRASHDIR"/libs/web_restore.sh
+        web_restore >/dev/null 2>&1
+    }
+    logger ShellCrash服务已启动！
+}
+container_shutdown(){
+    logger ShellCrash服务即将关闭……
+    [ -n "$(pidof CrashCore)" ] && web_save
+    if [ -n "$core_pid" ]; then
+        kill -TERM "$core_pid" 2>/dev/null
+    elif [ -f "$TMPDIR/shellcrash.pid" ]; then
+        kill -TERM "$(cat "$TMPDIR/shellcrash.pid")" 2>/dev/null
+    else
+        for pid in $(pidof CrashCore 2>/dev/null); do
+            kill -TERM "$pid" 2>/dev/null
+        done
+    fi
+    rm -f "$TMPDIR/shellcrash.pid"
+}
+start_container(){
+    [ -n "$(pidof CrashCore)" ] && $0 stop
+    rm -f "$CRASHDIR"/\.start_error
+    bfstart || exit 1
+    mkdir -p "$TMPDIR"
+    date +%s >"$TMPDIR"/crash_start_time
+    container_after_start &
+    trap 'container_shutdown; exit 0' INT TERM
+    logger "ShellCrash Docker代理模式启动：代理端口 ${mix_port}/tcp+udp，面板端口 ${db_port}/tcp" 32
+    $COMMAND &
+    core_pid=$!
+    echo "$core_pid" >"$TMPDIR/shellcrash.pid"
+    wait "$core_pid"
+    status=$?
+    rm -f "$TMPDIR/shellcrash.pid"
+    exit "$status"
+}
+stop_container(){
+    container_shutdown
+    rm -rf "$TMPDIR"/CrashCore
+}
 #保守模式启动
 start_l(){
 	bfstart && {
@@ -35,6 +92,8 @@ start_l(){
 case "$1" in
 
 start)
+    require_container
+    is_container_proxy && start_container
     [ -n "$(pidof CrashCore)" ] && $0 stop #禁止多实例
     stop_firewall                          #清理路由策略
 	rm -f "$CRASHDIR"/\.start_error #移除自启失败标记
@@ -65,6 +124,11 @@ start)
     fi
     ;;
 stop)
+    require_container
+    is_container_proxy && {
+        stop_container
+        exit 0
+    }
     logger ShellCrash服务即将关闭……
     [ -n "$(pidof CrashCore)" ] && web_save #保存面板配置
     #清理定时任务
@@ -95,13 +159,16 @@ stop)
     rm -rf "$TMPDIR"/CrashCore
     ;;
 restart)
+    require_container
     $0 stop
     $0 start
     ;;
 init)
+    require_container
     . "$CRASHDIR"/starts/general_init.sh
     ;;
 daemon)
+    require_container
     if [ -f $TMPDIR/crash_start_time ]; then
         $0 start
     else
@@ -109,8 +176,9 @@ daemon)
     fi
     ;;
 debug)
+    require_container
     [ -n "$(pidof CrashCore)" ] && $0 stop >/dev/null #禁止多实例
-    stop_firewall >/dev/null                          #清理路由策略
+    is_container_proxy || stop_firewall >/dev/null    #清理路由策略
     bfstart
     if [ -n "$2" ]; then
         if echo "$crashcore" | grep -q 'singbox'; then
@@ -123,11 +191,17 @@ debug)
         sleep 2
         logger "已运行debug模式!如需停止，请使用重启/停止服务功能！" 33
     else
-        $COMMAND >/dev/null 2>&1 &
+        if is_container_proxy; then
+            $COMMAND
+            exit $?
+        else
+            $COMMAND >/dev/null 2>&1 &
+        fi
     fi
     afstart
     ;;
 *)
+    require_container
     "$1" "$2" "$3" "$4" "$5" "$6" "$7"
     ;;
 

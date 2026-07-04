@@ -5,12 +5,21 @@
 modify_yaml() {
     ##########需要变更的配置###########
     [ "$ipv6_dns" != "OFF" ] && dns_v6='true' || dns_v6='false'
+    dns_listen=":$dns_port"
+    [ "$systype" = 'container' ] && [ "$firewall_area" != '5' ] && dns_listen="127.0.0.1:$dns_port"
     external="external-controller: 0.0.0.0:$db_port"
-    if [ "$redir_mod" = "混合模式" -o "$redir_mod" = "Tun模式" ]; then
+    if [ "$systype" = 'container' ] && [ "$firewall_area" != '5' ]; then
+        tun='tun: {enable: false}'
+        transparent_ports=''
+    elif [ "$redir_mod" = "混合模式" -o "$redir_mod" = "Tun模式" ]; then
         [ "$crashcore" = 'meta' ] && tun_meta=', device: utun, auto-route: false, auto-detect-interface: false'
         tun="tun: {enable: true, stack: system$tun_meta}"
+        transparent_ports="redir-port: $redir_port
+tproxy-port: $tproxy_port"
     else
         tun='tun: {enable: false}'
+        transparent_ports="redir-port: $redir_port
+tproxy-port: $tproxy_port"
     fi
     exper='experimental: {ignore-resolve-fail: true, interface-name: en0}'
     #Meta内核专属配置
@@ -32,7 +41,7 @@ modify_yaml() {
         cat >"$TMPDIR"/dns.yaml <<EOF
 dns:
   enable: true
-  listen: :$dns_port
+  listen: $dns_listen
   use-hosts: true
   ipv6: $dns_v6
   default-nameserver: [ $dns_resolver ]
@@ -70,14 +79,13 @@ EOF
     #生成set.yaml
     cat >"$TMPDIR"/set.yaml <<EOF
 mixed-port: $mix_port
-redir-port: $redir_port
-tproxy-port: $tproxy_port
+$transparent_ports
 authentication: ["$authentication"]
 allow-lan: true
 mode: Rule
 log-level: info
 ipv6: true
-external-controller: :$db_port
+external-controller: 0.0.0.0:$db_port
 external-ui: ui
 external-ui-url: "$external_ui_url"
 secret: $secret
@@ -88,6 +96,28 @@ $find_process
 routing-mark: $routing_mark
 unified-delay: true
 EOF
+    apply_container_yaml_override() {
+        [ "$systype" = 'container' ] && [ "$firewall_area" != '5' ] || return 0
+        awk '
+function top_level(line) { return line ~ /^[^[:space:]#][^:]*:/ }
+function managed(line) { return line ~ /^(mixed-port|port|socks-port|redir-port|tproxy-port|allow-lan|external-controller|external-ui|external-ui-url|secret|tun):/ }
+{
+    if (managed($0)) { skip=1; next }
+    if (skip && top_level($0)) skip=0
+    if (!skip) print
+}' "$TMPDIR"/config.yaml >"$TMPDIR"/config.docker_body.yaml
+        cat >"$TMPDIR"/docker_override.yaml <<EOF
+mixed-port: $mix_port
+allow-lan: true
+external-controller: 0.0.0.0:$db_port
+external-ui: ui
+external-ui-url: "$external_ui_url"
+secret: $secret
+tun: {enable: false}
+EOF
+        cat "$TMPDIR"/docker_override.yaml "$TMPDIR"/config.docker_body.yaml >"$TMPDIR"/config.yaml
+        rm -f "$TMPDIR"/docker_override.yaml "$TMPDIR"/config.docker_body.yaml
+    }
     #读取本机hosts并生成配置文件
     if [ "$hosts_opt" != "OFF" ] && [ -z "$(grep -aE '^hosts:' "$CRASHDIR"/yamls/user.yaml 2>/dev/null)" ]; then
         #NTP劫持
@@ -172,7 +202,7 @@ EOF
         done
     }
     #添加自定义入站
-	[ "$vms_service" = ON ] || [ "$sss_service" = ON ] && {
+	{ [ "$systype" != 'container' ] || [ "$firewall_area" = '5' ]; } && { [ "$vms_service" = ON ] || [ "$sss_service" = ON ]; } && {
 		. "$CRASHDIR"/configs/gateway.cfg
 		. "$CRASHDIR"/libs/meta_listeners.sh
 	}
@@ -220,6 +250,7 @@ EOF
     done
     #合并完整配置文件
     cut -c 1- "$TMPDIR"/set.yaml $yaml_dns $yaml_hosts $yaml_user $yaml_others $yaml_add >"$TMPDIR"/config.yaml
+    apply_container_yaml_override
     #测试自定义配置文件
     "$TMPDIR"/CrashCore -t -d "$BINDIR" -f "$TMPDIR"/config.yaml >/dev/null
     if [ "$?" != 0 ]; then

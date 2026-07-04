@@ -53,7 +53,7 @@ modify_json() {
     }
     cat "$TMPDIR"/format.json | sed -n '/"route":/,/^\(  "[a-z]\|}\)/p' | sed '$d' >>"$TMPDIR"/jsons/route.json
     #生成endpoints.json
-	[ "$ts_service" = ON ] || [ "$wg_service" = ON ] && [ "$zip_type" != upx ] && {
+	{ [ "$systype" != 'container' ] || [ "$firewall_area" = '5' ]; } && { [ "$ts_service" = ON ] || [ "$wg_service" = ON ]; } && [ "$zip_type" != upx ] && {
 		. "$CRASHDIR"/configs/gateway.cfg
 		. "$CRASHDIR"/libs/sb_endpoints.sh
 	}
@@ -111,7 +111,7 @@ EOF
     #根据dns模式生成
     [ "$dns_mod" = "redir_host" ] && {
         global_dns=dns_proxy
-        direct_dns='{ "inbound": [ "dns-in" ], "server": "dns_direct" }'
+        { [ "$systype" != 'container' ] || [ "$firewall_area" = '5' ]; } && direct_dns='{ "inbound": [ "dns-in" ], "server": "dns_direct" }'
     }
     [ "$dns_mod" = "fake-ip" ] || [ "$dns_mod" = "mix" ] && {
         global_dns=dns_fakeip
@@ -201,14 +201,15 @@ EOF
     #生成add_route.json
     #域名嗅探配置
     [ "$sniffer" != OFF ] && sniffer_set='{ "action": "sniff", "timeout": "500ms" },'
-	[ "$ts_service" = ON ] && tailscale_set='{ "inbound": [ "ts-ep" ], "port": 53, "action": "hijack-dns" },'
+	{ [ "$systype" != 'container' ] || [ "$firewall_area" = '5' ]; } && [ "$ts_service" = ON ] && tailscale_set='{ "inbound": [ "ts-ep" ], "port": 53, "action": "hijack-dns" },'
+    { [ "$systype" != 'container' ] || [ "$firewall_area" = '5' ]; } && dns_hijack_set='{ "inbound": [ "dns-in" ], "action": "hijack-dns" },'
     cat >"$TMPDIR"/jsons/add_route.json <<EOF
 {
   "route": {
 	"default_domain_resolver": "dns_resolver",
     "default_mark": $routing_mark,
 	"rules": [
-	  { "inbound": [ "dns-in" ], "action": "hijack-dns" },
+	  $dns_hijack_set
 	  $tailscale_set
 	  $sniffer_set
       { "clash_mode": "Direct" , "outbound": "DIRECT" },
@@ -231,7 +232,22 @@ EOF
         password=$(echo $authentication | awk -F ':' '{print $2}')
         userpass='"users": [{ "username": "'$username'", "password": "'$password'" }], '
     }
-    cat >"$TMPDIR"/jsons/inbounds.json <<EOF
+    if [ "$systype" = 'container' ] && [ "$firewall_area" != '5' ]; then
+        cat >"$TMPDIR"/jsons/inbounds.json <<EOF
+{
+  "inbounds": [
+    {
+      "type": "mixed",
+      "tag": "mixed-in",
+      "listen": "::",
+      $userpass
+      "listen_port": $mix_port
+    }
+  ]
+}
+EOF
+    else
+        cat >"$TMPDIR"/jsons/inbounds.json <<EOF
 {
   "inbounds": [
     {
@@ -262,12 +278,13 @@ EOF
   ]
 }
 EOF
+    fi
     #inbounds.json添加自定义入站
-	[ "$vms_service" = ON ] || [ "$sss_service" = ON ] && {
+	{ [ "$systype" != 'container' ] || [ "$firewall_area" = '5' ]; } && { [ "$vms_service" = ON ] || [ "$sss_service" = ON ]; } && {
 		. "$CRASHDIR"/configs/gateway.cfg
 		. "$CRASHDIR"/libs/sb_inbounds.sh
 	}
-    if [ "$redir_mod" = "混合模式" -o "$redir_mod" = "Tun模式" ]; then
+    if { [ "$systype" != 'container' ] || [ "$firewall_area" = '5' ]; } && [ "$redir_mod" = "混合模式" -o "$redir_mod" = "Tun模式" ]; then
         [ "ipv6_redir" = 'ON' ] && ipv6_address='"fe80::e5c5:2469:d09b:609a/64",'
         cat >>"$TMPDIR"/jsons/tun.json <<EOF
 {
@@ -364,7 +381,9 @@ EOF
     #加载自定义配置文件
     mkdir -p "$TMPDIR"/jsons_base
     #以下为覆盖脚本的自定义文件
-    for char in log dns ntp certificate experimental; do
+    override_chars='log dns ntp certificate experimental'
+    [ "$systype" = 'container' ] && [ "$firewall_area" != '5' ] && override_chars='log dns ntp certificate'
+    for char in $override_chars; do
         [ -s "$CRASHDIR"/jsons/${char}.json ] && {
             ln -sf "$CRASHDIR"/jsons/${char}.json "$TMPDIR"/jsons/cust_${char}.json
             mv -f "$TMPDIR"/jsons/${char}.json "$TMPDIR"/jsons_base #如果重复则临时备份

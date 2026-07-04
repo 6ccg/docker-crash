@@ -19,8 +19,12 @@
 #容器内环境
 grep -qE '/(docker|lxc|kubepods|crio|containerd)/' /proc/1/cgroup || [ -f /run/.containerenv ] || [ -f /.dockerenv ] && systype='container'
 #检查环境变量
-[ "$systype" = 'container' ] && CRASHDIR='/etc/ShellCrash'
 [ -z "$CRASHDIR" ] && [ -n "$clashdir" ] && CRASHDIR="$clashdir"
+[ "$systype" = 'container' ] && [ -z "$CRASHDIR" ] && CRASHDIR='/etc/ShellCrash'
+[ "$systype" != 'container' ] && {
+    echo -e "\033[31m当前版本仅支持 Docker 运行！\033[0m"
+    exit 1
+}
 [ -z "$CRASHDIR" ] && [ -d /tmp/SC_tmp ] && . /tmp/SC_tmp/menus/set_crashdir.sh && set_crashdir
 #移动文件
 mkdir -p "$CRASHDIR"
@@ -37,7 +41,10 @@ mkdir -p "$CRASHDIR"/configs
 #判断系统类型写入不同的启动文件
 [ -w /usr/lib/systemd/system ] && sysdir=/usr/lib/systemd/system
 [ -w /etc/systemd/system ] && sysdir=/etc/systemd/system
-if [ -f /etc/rc.common -a "$(cat /proc/1/comm)" = "procd" ]; then
+if [ "$systype" = 'container' ]; then
+    # Docker模式不接管宿主系统服务，启动由容器入口负责。
+    setconfig start_old 'OFF'
+elif [ -f /etc/rc.common -a "$(cat /proc/1/comm)" = "procd" ]; then
     #设为init.d方式启动
     cp -f "$CRASHDIR"/starts/shellcrash.procd /etc/init.d/shellcrash
     chmod 755 /etc/init.d/shellcrash
@@ -94,23 +101,37 @@ else
 fi
 setconfig COMMAND "$COMMAND" "$CRASHDIR"/configs/command.env
 #设置防火墙执行模式
-grep -q 'firewall_mod' "$CRASHDIR/configs/ShellClash.cfg" 2>/dev/null || {
+if [ "$systype" = 'container' ]; then
+    if grep -q '^firewall_area=5' "$CFG_PATH" 2>/dev/null; then
+        if ! grep -q '^firewall_mod=' "$CFG_PATH" 2>/dev/null || grep -q '^firewall_mod=none' "$CFG_PATH" 2>/dev/null; then
+            firewall_mod=iptables
+            nft add table inet shellcrash 2>/dev/null && firewall_mod=nftables
+            setconfig firewall_mod $firewall_mod
+        fi
+    else
+        setconfig firewall_mod 'none'
+    fi
+elif ! grep -q 'firewall_mod' "$CRASHDIR/configs/ShellClash.cfg" 2>/dev/null; then
     firewall_mod=iptables
     nft add table inet shellcrash 2>/dev/null && firewall_mod=nftables
     setconfig firewall_mod $firewall_mod
-}
+fi
 #设置更新地址
 [ -n "$url" ] && setconfig update_url $url
 #设置环境变量
-[ -w /opt/etc/profile ] && [ "$systype" = "Padavan" ] && profile=/opt/etc/profile
-[ -w /jffs/configs/profile.add ] && profile=/jffs/configs/profile.add
-[ -z "$profile" ] && profile=/etc/profile
-if [ -n "$profile" ]; then
+[ "$systype" = 'container' ] && {
+    [ -z "$my_alias" ] && my_alias=crash
+    setconfig my_alias "$my_alias"
+}
+[ "$systype" != 'container' ] && [ -w /opt/etc/profile ] && [ "$systype" = "Padavan" ] && profile=/opt/etc/profile
+[ "$systype" != 'container' ] && [ -w /jffs/configs/profile.add ] && profile=/jffs/configs/profile.add
+[ "$systype" != 'container' ] && [ -z "$profile" ] && profile=/etc/profile
+if [ "$systype" != 'container' ] && [ -n "$profile" ]; then
     set_profile "$profile"
     #适配zsh环境变量
     zsh --version >/dev/null 2>&1 && [ -z "$(cat $HOME/.zshrc 2>/dev/null | grep CRASHDIR)" ] && set_profile "$HOME/.zshrc"
     setconfig my_alias "$my_alias"
-else
+elif [ "$systype" != 'container' ]; then
     echo -e "\033[33m无法写入环境变量！请检查安装权限！\033[0m"
     exit 1
 fi
@@ -160,18 +181,26 @@ fi
 	setconfig userguide '1'
 	setconfig crashcore 'meta'
 	setconfig dns_mod 'mix'
-	setconfig firewall_area '1'
-	setconfig firewall_mod 'nftables'
+	grep -q '^firewall_area=5' "$CFG_PATH" 2>/dev/null || setconfig firewall_area '4'
+	if grep -q '^firewall_area=5' "$CFG_PATH" 2>/dev/null; then
+		if ! grep -q '^firewall_mod=' "$CFG_PATH" 2>/dev/null || grep -q '^firewall_mod=none' "$CFG_PATH" 2>/dev/null; then
+			firewall_mod=iptables
+			nft add table inet shellcrash 2>/dev/null && firewall_mod=nftables
+			setconfig firewall_mod $firewall_mod
+		fi
+	else
+		setconfig firewall_mod 'none'
+	fi
 	setconfig release_type 'master'
 	setconfig start_old 'OFF'
-	echo "$CRASHDIR/menu.sh" >> /etc/profile
-	cat > /usr/bin/crash <<'EOF'
+	[ -w /etc/profile ] && echo "$CRASHDIR/menu.sh" >> /etc/profile
+	[ -w /usr/bin ] && cat > /usr/bin/crash <<'EOF'
 #!/bin/sh
 CRASHDIR=${CRASHDIR:-/etc/ShellCrash}
 export CRASHDIR
 exec "$CRASHDIR/menu.sh" "$@"
 EOF
-    chmod 755 /usr/bin/crash	
+    [ -w /usr/bin/crash ] && chmod 755 /usr/bin/crash
 }
 setconfig systype $systype
 #删除临时文件
@@ -207,12 +236,14 @@ for file in cron task.list; do
 done
 mv -f "$CRASHDIR"/menus/task_cmd.sh "$CRASHDIR"/task/task.sh 2>/dev/null
 #旧版文件清理
-userdel shellclash >/dev/null 2>&1
-sed -i '/shellclash/d' /etc/passwd
-sed -i '/shellclash/d' /etc/group
-rm -rf /etc/init.d/clash
+[ "$systype" != 'container' ] && {
+    userdel shellclash >/dev/null 2>&1
+    sed -i '/shellclash/d' /etc/passwd
+    sed -i '/shellclash/d' /etc/group
+    rm -rf /etc/init.d/clash
+    [ "$systype" = "mi_snapshot" -a "$CRASHDIR" != '/data/clash' ] && rm -rf /data/clash
+}
 rm -rf "$CRASHDIR"/rules
-[ "$systype" = "mi_snapshot" -a "$CRASHDIR" != '/data/clash' ] && rm -rf /data/clash
 for file in webget.sh misnap_init.sh core.new; do
     rm -f "$CRASHDIR/$file"
 done

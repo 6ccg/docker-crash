@@ -4,6 +4,7 @@
 #初始化目录
 [ -z "$CRASHDIR" ] && CRASHDIR=$( cd $(dirname $0);cd ..;pwd)
 . "$CRASHDIR"/libs/get_config.sh
+[ "$systype" = 'container' ] && [ "$firewall_area" != '5' ] && exit 0
 . "$CRASHDIR"/libs/check_cmd.sh
 . "$CRASHDIR"/starts/fw_getlanip.sh && getlanip #获取局域网host地址
 #缺省值
@@ -133,4 +134,3 @@ ckcmd nft && nft delete table inet shellcrash >/dev/null 2>&1
 [ -s /etc/init.d/firewall.bak ] && mv -f /etc/init.d/firewall.bak /etc/init.d/firewall
 #others
 sed -i '/shellcrash-dns-repair/d' /etc/resolv.conf 2>/dev/null
-

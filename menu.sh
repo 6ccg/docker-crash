@@ -9,6 +9,10 @@ CFG_PATH="$CRASHDIR"/configs/ShellCrash.cfg
 #加载执行目录，失败则初始化
 . "$CRASHDIR"/libs/get_config.sh
 [ -z "$BINDIR" -o -z "$TMPDIR" -o -z "$COMMAND" ] && . "$CRASHDIR"/init.sh >/dev/null 2>&1
+[ "$systype" != 'container' ] && {
+    echo -e "\033[31m当前版本仅支持 Docker 运行！\033[0m"
+    exit 1
+}
 [ ! -f "$TMPDIR" ] && mkdir -p "$TMPDIR"
 
 #通用工具

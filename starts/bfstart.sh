@@ -18,6 +18,16 @@
 . "$CRASHDIR"/starts/check_geo.sh
 . "$CRASHDIR"/starts/check_core.sh
 #缺省值
+[ "$systype" = 'container' ] && [ "$firewall_area" != '5' ] && {
+	firewall_area='4'
+	firewall_mod='none'
+	redir_mod='纯净模式'
+}
+[ "$systype" = 'container' ] && [ "$firewall_area" = '5' ] && [ "$firewall_mod" = 'none' ] && {
+	firewall_mod=iptables
+	nft add table inet shellcrash 2>/dev/null && firewall_mod=nftables
+	setconfig firewall_mod $firewall_mod
+}
 [ -z "$redir_mod" ] && [ "$USER" = "root" -o "$USER" = "admin" ] && redir_mod='Redir模式'
 [ -z "$dns_mod" ] && dns_mod='redir_host'
 [ -z "$redir_mod" ] && firewall_area='4'
@@ -114,7 +124,7 @@ else
 	fi
 fi
 #检查下载cnip绕过相关文件
-[ "$cn_ip_route" = "ON" ] && [ "$dns_mod" != "fake-ip" ] && {
+{ [ "$systype" != 'container' ] || [ "$firewall_area" = '5' ]; } && [ "$cn_ip_route" = "ON" ] && [ "$dns_mod" != "fake-ip" ] && {
 	[ "$firewall_mod" = nftables ] || ckcmd ipset && {
 		. "$CRASHDIR"/starts/check_cnip.sh
 		ck_cn_ipv4
@@ -122,7 +132,7 @@ fi
 	}
 }
 #添加shellcrash用户
-[ "$firewall_area" = 2 ] || [ "$firewall_area" = 3 ] || [ "$(cat /proc/1/comm)" = "systemd" ] &&
+{ [ "$systype" != 'container' ] || [ "$firewall_area" = '5' ]; } && { [ "$firewall_area" = 2 ] || [ "$firewall_area" = 3 ] || [ "$(cat /proc/1/comm)" = "systemd" ]; } &&
 	[ -z "$(id shellcrash 2>/dev/null | grep 'root')" ] && {
 	ckcmd userdel && userdel shellcrash 2>/dev/null
 	sed -i '/0:7890/d' /etc/passwd
@@ -135,9 +145,8 @@ fi
 	fi
 }
 #加载系统内核组件
-[ "$redir_mod" = "Tun模式" -o "$redir_mod" = "混合模式" ] && ckcmd modprobe && modprobe tun 2>/dev/null
+{ [ "$systype" != 'container' ] || [ "$firewall_area" = '5' ]; } && [ "$redir_mod" = "Tun模式" -o "$redir_mod" = "混合模式" ] && ckcmd modprobe && modprobe tun 2>/dev/null
 #清理debug日志
 rm -rf /tmp/ShellCrash/debug.log
 rm -rf "$CRASHDIR"/debug.log
 exit 0
-

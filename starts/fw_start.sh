@@ -1,6 +1,12 @@
 #!/bin/sh
 # Copyright (C) Juewuy
 
+[ "$systype" = 'container' ] && [ "$firewall_area" != '5' ] && exit 0
+[ "$systype" = 'container' ] && [ "$firewall_area" = '5' ] && [ "$firewall_mod" = 'none' ] && {
+	firewall_mod=iptables
+	nft add table inet shellcrash 2>/dev/null && firewall_mod=nftables
+	setconfig firewall_mod $firewall_mod 2>/dev/null
+}
 #获取局域网host地址
 . "$CRASHDIR"/starts/fw_getlanip.sh && getlanip
 #缺省值
