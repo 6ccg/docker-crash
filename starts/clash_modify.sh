@@ -100,7 +100,7 @@ EOF
         [ "$systype" = 'container' ] && [ "$firewall_area" != '5' ] || return 0
         awk '
 function top_level(line) { return line ~ /^[^[:space:]#][^:]*:/ }
-function managed(line) { return line ~ /^(mixed-port|port|socks-port|redir-port|tproxy-port|allow-lan|external-controller|external-ui|external-ui-url|secret|tun):/ }
+function managed(line) { return line ~ /^(mixed-port|port|socks-port|redir-port|tproxy-port|allow-lan|external-controller|external-ui|external-ui-url|secret|tun|experimental|routing-mark):/ }
 {
     if (managed($0)) { skip=1; next }
     if (skip && top_level($0)) skip=0
@@ -114,6 +114,7 @@ external-ui: ui
 external-ui-url: "$external_ui_url"
 secret: $secret
 tun: {enable: false}
+experimental: {ignore-resolve-fail: true}
 EOF
         cat "$TMPDIR"/docker_override.yaml "$TMPDIR"/config.docker_body.yaml >"$TMPDIR"/config.yaml
         rm -f "$TMPDIR"/docker_override.yaml "$TMPDIR"/config.docker_body.yaml
