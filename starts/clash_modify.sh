@@ -267,7 +267,11 @@ EOF
         apply_container_yaml_override
     fi
     #建立软连接
-    [ ""$TMPDIR"" = ""$BINDIR"" ] || ln -sf "$TMPDIR"/config.yaml "$BINDIR"/config.yaml 2>/dev/null || cp -f "$TMPDIR"/config.yaml "$BINDIR"/config.yaml
+    if [ "$systype" = 'container' ] && [ "$firewall_area" != '5' ]; then
+        rm -f "$BINDIR"/config.yaml
+    else
+        [ ""$TMPDIR"" = ""$BINDIR"" ] || ln -sf "$TMPDIR"/config.yaml "$BINDIR"/config.yaml 2>/dev/null || cp -f "$TMPDIR"/config.yaml "$BINDIR"/config.yaml
+    fi
     #清理缓存
     for char in $yaml_char set set_bak dns hosts; do
         rm -f "$TMPDIR"/${char}.yaml
