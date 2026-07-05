@@ -3,35 +3,10 @@ set -eu
 
 CRASHDIR="${CRASHDIR:-/etc/ShellCrash}"
 DATADIR="${SHELLCRASH_DATADIR:-/data}"
-DEFAULTS_DIR="${SHELLCRASH_DEFAULTS_DIR:-/usr/local/share/shellcrash/defaults}"
 export CRASHDIR
 
-for dir in configs yamls jsons ruleset ui task tools; do
-    mkdir -p "$DATADIR/$dir"
-done
-mkdir -p /tmp/ShellCrash
-
-install_default_file() {
-    src="$1"
-    dst="$2"
-    [ -s "$dst" ] && return 0
-    [ -f "$src" ] || return 0
-    cp -f "$src" "$dst"
-}
-
-install_default_dir() {
-    srcdir="$1"
-    dstdir="$2"
-    [ -d "$srcdir" ] || return 0
-    for src in "$srcdir"/*; do
-        [ -f "$src" ] || continue
-        install_default_file "$src" "$dstdir/$(basename "$src")"
-    done
-}
-
-install_default_dir "$DEFAULTS_DIR/configs" "$DATADIR/configs"
-install_default_dir "$DEFAULTS_DIR/task" "$DATADIR/task"
-install_default_dir "$DEFAULTS_DIR/data" "$DATADIR"
+. "$CRASHDIR"/libs/docker_data.sh
+init_docker_data_defaults
 
 if [ -x "$DATADIR/CrashCore" ]; then
     cp -f "$DATADIR/CrashCore" /tmp/ShellCrash/CrashCore
@@ -41,38 +16,7 @@ elif [ -f "$DATADIR/CrashCore.gz" ]; then
     chmod 755 /tmp/ShellCrash/CrashCore
 fi
 
-set_config() {
-    key="$1"
-    value="$2"
-    file="$3"
-    touch "$file"
-    sed -i "/^${key}=.*/d" "$file"
-    printf '%s=%s\n' "$key" "$value" >>"$file"
-}
-
 cfg="$DATADIR/configs/ShellCrash.cfg"
-[ -f "$cfg" ] || printf '%s\n' '#ShellCrash配置文件，不明勿动！' >"$cfg"
-
-set_config systype container "$cfg"
-if [ "${SHELLCRASH_MODE:-proxy}" != "macvlan" ]; then
-    set_config firewall_area 4 "$cfg"
-    set_config firewall_mod none "$cfg"
-    set_config start_old OFF "$cfg"
-fi
-[ -n "${MIX_PORT:-}" ] && set_config mix_port "$MIX_PORT" "$cfg"
-[ -n "${DB_PORT:-}" ] && set_config db_port "$DB_PORT" "$cfg"
-
-cmd="$DATADIR/configs/command.env"
-if [ -f "$cmd" ] && grep -q 'run -D' "$cmd"; then
-    command='COMMAND="$TMPDIR/CrashCore run -D $BINDIR -C $TMPDIR/jsons"'
-else
-    command='COMMAND="$TMPDIR/CrashCore -d $BINDIR -f $TMPDIR/config.yaml"'
-fi
-cat >"$cmd" <<EOF
-TMPDIR=/tmp/ShellCrash
-BINDIR=$DATADIR
-$command
-EOF
 
 if [ "$#" -eq 0 ]; then
     set -- start

@@ -12,48 +12,13 @@ grep -qE '/(docker|lxc|kubepods|crio|containerd)/' /proc/1/cgroup || [ -f /run/.
 }
 
 mkdir -p "$CRASHDIR"
-DEFAULTS_DIR="${SHELLCRASH_DEFAULTS_DIR:-/usr/local/share/shellcrash/defaults}"
 CFG_PATH="$CRASHDIR"/configs/ShellCrash.cfg
 . "$CRASHDIR"/libs/set_config.sh
+. "$CRASHDIR"/libs/docker_data.sh
 
 mkdir -p "$CRASHDIR"/configs "$CRASHDIR"/yamls "$CRASHDIR"/jsons "$CRASHDIR"/tools "$CRASHDIR"/task "$CRASHDIR"/ruleset
-[ -f "$CFG_PATH" ] || echo '#ShellCrash配置文件，不明勿动！' >"$CFG_PATH"
-
-# Docker模式不接管宿主系统服务，启动由容器入口负责。
-setconfig start_old 'OFF'
-setconfig systype 'container'
-setconfig userguide '1'
+init_docker_data_defaults
 my_alias=$(grep '^my_alias=' "$CFG_PATH" 2>/dev/null | tail -n 1 | cut -d= -f2-)
-[ -z "$my_alias" ] && my_alias=crash && setconfig my_alias "$my_alias"
-grep -q '^crashcore=' "$CFG_PATH" 2>/dev/null || setconfig crashcore 'meta'
-grep -q '^dns_mod=' "$CFG_PATH" 2>/dev/null || setconfig dns_mod 'mix'
-grep -q '^release_type=' "$CFG_PATH" 2>/dev/null || setconfig release_type 'master'
-
-# 生成用于执行启动服务的变量文件。BINDIR 必须指向持久化数据目录，避免重建容器后重新下载。
-TMPDIR='/tmp/ShellCrash'
-BINDIR="${SHELLCRASH_DATADIR:-/data}"
-mkdir -p "$TMPDIR" "$BINDIR"
-touch "$CRASHDIR"/configs/command.env
-setconfig TMPDIR "$TMPDIR" "$CRASHDIR"/configs/command.env
-setconfig BINDIR "$BINDIR" "$CRASHDIR"/configs/command.env
-if grep -q '^crashcore=singbox' "$CFG_PATH" 2>/dev/null; then
-    COMMAND='"$TMPDIR/CrashCore run -D $BINDIR -C $TMPDIR/jsons"'
-else
-    COMMAND='"$TMPDIR/CrashCore -d $BINDIR -f $TMPDIR/config.yaml"'
-fi
-setconfig COMMAND "$COMMAND" "$CRASHDIR"/configs/command.env
-
-# 普通 Docker 代理模式不写防火墙；macvlan 保留 root/NET_ADMIN 路径。
-if grep -q '^firewall_area=5' "$CFG_PATH" 2>/dev/null; then
-    if ! grep -q '^firewall_mod=' "$CFG_PATH" 2>/dev/null || grep -q '^firewall_mod=none' "$CFG_PATH" 2>/dev/null; then
-        firewall_mod=iptables
-        nft add table inet shellcrash 2>/dev/null && firewall_mod=nftables
-        setconfig firewall_mod $firewall_mod
-    fi
-else
-    setconfig firewall_area '4'
-    setconfig firewall_mod 'none'
-fi
 
 # 批量授权
 command -v bash >/dev/null 2>&1 && shtype=bash
@@ -78,21 +43,6 @@ for file in config.yaml.bak user.yaml proxies.yaml proxy-groups.yaml rules.yaml 
     mv -f "$CRASHDIR"/"$file" "$CRASHDIR"/yamls/"$file" 2>/dev/null
 done
 [ ! -L "$CRASHDIR"/config.yaml ] && mv -f "$CRASHDIR"/config.yaml "$CRASHDIR"/yamls/config.yaml 2>/dev/null
-for src in "$DEFAULTS_DIR"/configs/*; do
-    [ -f "$src" ] || continue
-    file=$(basename "$src")
-    [ ! -s "$CRASHDIR"/configs/"$file" ] && cp -f "$src" "$CRASHDIR"/configs/"$file" 2>/dev/null
-done
-for src in "$DEFAULTS_DIR"/task/*; do
-    [ -f "$src" ] || continue
-    file=$(basename "$src")
-    [ ! -s "$CRASHDIR"/task/"$file" ] && cp -f "$src" "$CRASHDIR"/task/"$file" 2>/dev/null
-done
-for src in "$DEFAULTS_DIR"/data/*; do
-    [ -f "$src" ] || continue
-    file=$(basename "$src")
-    [ ! -s "${SHELLCRASH_DATADIR:-/data}"/"$file" ] && cp -f "$src" "${SHELLCRASH_DATADIR:-/data}"/"$file" 2>/dev/null
-done
 mv -f "$CRASHDIR"/configs/ShellClash.cfg "$CFG_PATH" 2>/dev/null
 mv -f "$CRASHDIR"/geosite.dat "$CRASHDIR"/GeoSite.dat 2>/dev/null
 mv -f "$CRASHDIR"/ruleset/geosite-cn.srs "$CRASHDIR"/ruleset/cn.srs 2>/dev/null
@@ -102,7 +52,6 @@ mv -f "$CRASHDIR"/*.mrs "$CRASHDIR"/ruleset/ 2>/dev/null
 for file in cron task.list; do
     mv -f "$CRASHDIR"/"$file" "$CRASHDIR"/task/"$file" 2>/dev/null
 done
-[ -f "$CRASHDIR"/menus/task_cmd.sh ] && [ ! -e "$CRASHDIR"/task/task.sh ] && cp -f "$CRASHDIR"/menus/task_cmd.sh "$CRASHDIR"/task/task.sh 2>/dev/null
 
 rm -rf "$CRASHDIR"/rules
 for file in webget.sh core.new; do
