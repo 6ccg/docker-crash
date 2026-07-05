@@ -363,9 +363,11 @@ EOF
     sed -i '/"process_name": \[/,/],$/d' "$TMPDIR"/jsons/route.json
     sed -i '/"process_name": "[^"]*",/d' "$TMPDIR"/jsons/route.json
     sed -i 's/"auto_detect_interface": true/"auto_detect_interface": false/g' "$TMPDIR"/jsons/route.json
-    #跳过本地tls证书验证。OFF 时保留订阅里的逐节点设置，避免破坏需要跳过证书校验的节点。
+    #跳过本地tls证书验证
     if [ "$skip_cert" != "OFF" ]; then
         sed -i 's/"insecure": false/"insecure": true/' "$TMPDIR"/jsons/outbounds.json "$TMPDIR"/jsons/providers.json 2>/dev/null
+    else
+        sed -i 's/"insecure": true/"insecure": false/' "$TMPDIR"/jsons/outbounds.json "$TMPDIR"/jsons/providers.json 2>/dev/null
     fi
     #判断可用并修饰outbounds&providers&route.json结尾
     for file in outbounds providers route; do
