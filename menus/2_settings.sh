@@ -28,7 +28,7 @@ settings() { #功能设置
 	echo -e " 2 DNS设置：		\033[36m$dns_mod\033[0m"
     is_container_proxy_mode || echo -e " 3 透明路由\033[32m流量过滤\033[0m"
     [ "$disoverride" != "1" ] && {
-        echo -e " 4 跳过证书验证：	\033[36m$skip_cert\033[0m"
+		echo -e " 4 强制跳过证书验证：	\033[36m$skip_cert\033[0m"
 		echo -e " 5 启用域名嗅探:	\033[36m$sniffer\033[0m"
 		echo -e " 6 自定义\033[32m端口及秘钥\033[0m"
     }
@@ -76,7 +76,7 @@ settings() { #功能设置
             echo -e "\033[33m已设为开启跳过本地证书验证！！\033[0m"
             skip_cert=ON
         else
-            echo -e "\033[33m已设为禁止跳过本地证书验证！！\033[0m"
+            echo -e "\033[33m已设为不强制改写节点证书验证设置！！\033[0m"
             skip_cert=OFF
         fi
         setconfig skip_cert $skip_cert
