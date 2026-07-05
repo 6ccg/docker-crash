@@ -148,9 +148,11 @@ EOF
     for char in $yaml_char; do
         sed -n "/^$char:/,/^[a-z]/ { /^[a-z]/d; p; }" $core_config >"$TMPDIR"/${char}.yaml
     done
-    #跳过本地tls证书验证
-    [ "$skip_cert" != "OFF" ] && sed -i 's/skip-cert-verify: false/skip-cert-verify: true/' "$TMPDIR"/proxies.yaml ||
-        sed -i 's/skip-cert-verify: true/skip-cert-verify: false/' "$TMPDIR"/proxies.yaml
+    #全局证书验证策略。CONFIG 时保留订阅里的逐节点设置。
+    case "$skip_cert" in
+    ON) sed -i 's/skip-cert-verify: false/skip-cert-verify: true/' "$TMPDIR"/proxies.yaml ;;
+    OFF) sed -i 's/skip-cert-verify: true/skip-cert-verify: false/' "$TMPDIR"/proxies.yaml ;;
+    esac
     #插入自定义策略组
     sed -i "/#自定义策略组开始/,/#自定义策略组结束/d" "$TMPDIR"/proxy-groups.yaml
     sed -i "/#自定义策略组/d" "$TMPDIR"/proxy-groups.yaml

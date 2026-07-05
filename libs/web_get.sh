@@ -17,10 +17,10 @@ webget(){
 	if wget --help 2>&1 | grep -q 'show-progress' >/dev/null 2>&1; then
 		[ "$3" = "echooff" ] && progress='-q' || progress='-q --show-progress'
 		[ "$4" = "rediroff" ] && redirect='--max-redirect=0' || redirect=''
-		if [ "$5" = "skipceroff" ] || [ "$skip_cert" = OFF ];then
-			certificate=''
-		else
+		if [ "$5" = "skipceron" ] || { [ "$5" != "skipceroff" ] && [ "$skip_cert" = ON ]; }; then
 			certificate='--no-check-certificate'
+		else
+			certificate=''
 		fi
 		wget -Y on $agent $progress $redirect $certificate --timeout=3 -O "$1" "$url" && return 0 #成功则退出否则重试
 		wget -Y off $agent $progress $redirect $certificate --timeout=5 -O "$1" "$2"
@@ -28,10 +28,10 @@ webget(){
 	elif curl --version >/dev/null 2>&1; then
 		[ "$3" = "echooff" ] && progress='-s' || progress='-#'
 		[ "$4" = "rediroff" ] && redirect='' || redirect='-L'
-		if [ "$5" = "skipceroff" ] || [ "$skip_cert" = OFF ];then
-			certificate=''
-		else
+		if [ "$5" = "skipceron" ] || { [ "$5" != "skipceroff" ] && [ "$skip_cert" = ON ]; }; then
 			certificate='-k'
+		else
+			certificate=''
 		fi
 		if curl --version | grep -q '^curl 8.' && ckcmd base64; then
 			auth_b64=$(printf '%s' "$authentication" | base64)

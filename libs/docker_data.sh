@@ -32,6 +32,7 @@ init_docker_data_defaults() {
     docker_set_config_if_missing my_alias crash "$cfg"
     docker_set_config_if_missing crashcore meta "$cfg"
     docker_set_config_if_missing dns_mod mix "$cfg"
+    docker_set_config_if_missing skip_cert CONFIG "$cfg"
     docker_set_config_if_missing release_type master "$cfg"
 
     if [ "${SHELLCRASH_MODE:-proxy}" != "macvlan" ]; then

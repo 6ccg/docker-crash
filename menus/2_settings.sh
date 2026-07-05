@@ -10,7 +10,7 @@ is_container_proxy_mode(){
 
 settings() { #功能设置
     #获取设置默认显示
-    [ -z "$skip_cert" ] && skip_cert=ON
+    [ -z "$skip_cert" ] && skip_cert=CONFIG
 	[ -z "$sniffer" ] && {
 		sniffer=OFF
 		echo "$crashcore" | grep -q 'singbox' && sniffer=ON
@@ -28,7 +28,7 @@ settings() { #功能设置
 	echo -e " 2 DNS设置：		\033[36m$dns_mod\033[0m"
     is_container_proxy_mode || echo -e " 3 透明路由\033[32m流量过滤\033[0m"
     [ "$disoverride" != "1" ] && {
-        echo -e " 4 跳过证书验证：	\033[36m$skip_cert\033[0m"
+        echo -e " 4 证书验证策略：	\033[36m$(skip_cert_label)\033[0m"
 		echo -e " 5 启用域名嗅探:	\033[36m$sniffer\033[0m"
 		echo -e " 6 自定义\033[32m端口及秘钥\033[0m"
     }
@@ -71,15 +71,7 @@ settings() { #功能设置
         settings
 	;;
     4)
-        echo "-----------------------------------------------"
-        if [ "$skip_cert" = "OFF" ] >/dev/null 2>&1; then
-            echo -e "\033[33m已设为开启跳过本地证书验证！！\033[0m"
-            skip_cert=ON
-        else
-            echo -e "\033[33m已设为禁止跳过本地证书验证！！\033[0m"
-            skip_cert=OFF
-        fi
-        setconfig skip_cert $skip_cert
+        set_skip_cert
         settings
 	;;
     5)
@@ -156,6 +148,50 @@ settings() { #功能设置
         errornum
 	;;
     esac
+}
+
+skip_cert_label() {
+    case "$skip_cert" in
+    ON) echo "强制跳过" ;;
+    OFF) echo "强制验证" ;;
+    *) echo "遵循配置文件" ;;
+    esac
+}
+
+set_skip_cert() {
+    echo "-----------------------------------------------"
+    echo -e "当前证书验证策略：\033[36m$(skip_cert_label)\033[0m"
+    echo "-----------------------------------------------"
+    echo -e " 1 强制跳过证书验证"
+    echo -e " 2 强制验证证书"
+    echo -e " 3 遵循配置文件"
+    echo "-----------------------------------------------"
+    echo " 0 返回上级菜单"
+    echo "-----------------------------------------------"
+    read -p "请输入对应数字 > " num
+    case "$num" in
+    0) ;;
+    1)
+        skip_cert=ON
+        setconfig skip_cert "$skip_cert"
+        echo -e "\033[33m已设为强制跳过证书验证，节点配置会被覆盖为跳过验证！\033[0m"
+    ;;
+    2)
+        skip_cert=OFF
+        setconfig skip_cert "$skip_cert"
+        echo -e "\033[33m已设为强制验证证书，节点配置会被覆盖为不跳过验证！\033[0m"
+    ;;
+    3)
+        skip_cert=CONFIG
+        setconfig skip_cert "$skip_cert"
+        echo -e "\033[33m已设为遵循配置文件，不再改写节点证书验证设置！\033[0m"
+    ;;
+    *)
+        errornum
+        set_skip_cert
+    ;;
+    esac
+    sleep 1
 }
 
 set_redir_mod() { #路由模式设置

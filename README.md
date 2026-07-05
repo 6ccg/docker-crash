@@ -124,6 +124,12 @@ Clash/mihomo 最终配置会强制覆写：
 sing-box 普通模式只生成 `mixed` 入站，并通过 `experimental.clash_api`
 暴露面板到 `0.0.0.0:$db_port`。
 
+证书验证策略使用 `/data/configs/ShellCrash.cfg` 里的 `skip_cert`：
+
+- `CONFIG`：默认值，遵循订阅或配置文件里的逐节点设置。
+- `ON`：全局强制跳过证书验证。
+- `OFF`：全局强制验证证书。
+
 ## macvlan 旁路由
 
 macvlan 旁路由是保留模式，只在显式设置 `firewall_area=5` 时启用。

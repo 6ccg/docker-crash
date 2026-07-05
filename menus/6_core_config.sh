@@ -363,7 +363,9 @@ gen_clash_providers(){ #生成clash的providers配置文件
       interval: 600
 EOF
 		[ "$crashcore" = 'meta' ] && {
-		[ "$skip_cert" != "OFF" ] && skip_cert_verify='skip-cert-verify: true'
+		unset skip_cert_verify
+		[ "$skip_cert" = "ON" ] && skip_cert_verify='skip-cert-verify: true'
+		[ "$skip_cert" = "OFF" ] && skip_cert_verify='skip-cert-verify: false'
 		cat >> $TMPDIR/providers/providers.yaml <<EOF
     override:
       udp: true
@@ -453,18 +455,24 @@ EOF
 EOF
 		fi
 		#通用部分生成
-		[ "$skip_cert" != "OFF" ] && override_tls='true' || override_tls='false'
+		unset override_tls
+		[ "$skip_cert" = "ON" ] && override_tls='	  "override_tls": {
+		"enabled": true,
+		"insecure": true
+	  }'
+		[ "$skip_cert" = "OFF" ] && override_tls='	  "override_tls": {
+		"enabled": true,
+		"insecure": false
+	  }'
+		[ -n "$override_tls" ] && health_check_comma=',' || health_check_comma=''
 		cat >> "$TMPDIR"/providers/providers.json <<EOF
       "health_check": {
         "enabled": true,
         "url": "https://www.gstatic.com/generate_204",
         "interval": "10m",
         "timeout": "3s"
-      },
-	  "override_tls": {
-		"enabled": true,
-		"insecure": $override_tls
-	  }
+      }$health_check_comma
+$override_tls
 	},
 EOF
 	}
