@@ -78,7 +78,7 @@ for file in config.yaml.bak user.yaml proxies.yaml proxy-groups.yaml rules.yaml 
 done
 [ ! -L "$CRASHDIR"/config.yaml ] && mv -f "$CRASHDIR"/config.yaml "$CRASHDIR"/yamls/config.yaml 2>/dev/null
 for file in fake_ip_filter mac web_save servers.list fake_ip_filter.list fallback_filter.list singbox_providers.list clash_providers.list; do
-    [ -f "$CRASHDIR"/"$file" ] && [ ! -e "$CRASHDIR"/configs/"$file" ] && cp -f "$CRASHDIR"/"$file" "$CRASHDIR"/configs/"$file" 2>/dev/null
+    [ -f "$CRASHDIR"/"$file" ] && [ ! -s "$CRASHDIR"/configs/"$file" ] && cp -f "$CRASHDIR"/"$file" "$CRASHDIR"/configs/"$file" 2>/dev/null
 done
 mv -f "$CRASHDIR"/configs/ShellClash.cfg "$CFG_PATH" 2>/dev/null
 mv -f "$CRASHDIR"/geosite.dat "$CRASHDIR"/GeoSite.dat 2>/dev/null

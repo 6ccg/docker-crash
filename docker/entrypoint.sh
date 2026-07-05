@@ -10,6 +10,19 @@ for dir in configs yamls jsons ruleset ui task tools; do
 done
 mkdir -p /tmp/ShellCrash
 
+seed_file() {
+    src="$1"
+    dst="$2"
+    [ -s "$dst" ] || [ ! -f "$src" ] || cp -f "$src" "$dst"
+}
+
+for file in fake_ip_filter mac web_save servers.list fake_ip_filter.list fallback_filter.list singbox_providers.list clash_providers.list; do
+    seed_file "$CRASHDIR/$file" "$DATADIR/configs/$file"
+done
+for file in task.list task_en.list; do
+    seed_file "$CRASHDIR/$file" "$DATADIR/task/$file"
+done
+
 if [ -x "$DATADIR/CrashCore" ]; then
     cp -f "$DATADIR/CrashCore" /tmp/ShellCrash/CrashCore
     chmod 755 /tmp/ShellCrash/CrashCore
