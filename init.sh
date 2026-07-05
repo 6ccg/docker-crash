@@ -12,6 +12,7 @@ grep -qE '/(docker|lxc|kubepods|crio|containerd)/' /proc/1/cgroup || [ -f /run/.
 }
 
 mkdir -p "$CRASHDIR"
+DEFAULTS_DIR="${SHELLCRASH_DEFAULTS_DIR:-/usr/local/share/shellcrash/defaults}"
 CFG_PATH="$CRASHDIR"/configs/ShellCrash.cfg
 . "$CRASHDIR"/libs/set_config.sh
 
@@ -77,8 +78,20 @@ for file in config.yaml.bak user.yaml proxies.yaml proxy-groups.yaml rules.yaml 
     mv -f "$CRASHDIR"/"$file" "$CRASHDIR"/yamls/"$file" 2>/dev/null
 done
 [ ! -L "$CRASHDIR"/config.yaml ] && mv -f "$CRASHDIR"/config.yaml "$CRASHDIR"/yamls/config.yaml 2>/dev/null
-for file in fake_ip_filter mac web_save servers.list fake_ip_filter.list fallback_filter.list singbox_providers.list clash_providers.list; do
-    [ -f "$CRASHDIR"/"$file" ] && [ ! -s "$CRASHDIR"/configs/"$file" ] && cp -f "$CRASHDIR"/"$file" "$CRASHDIR"/configs/"$file" 2>/dev/null
+for src in "$DEFAULTS_DIR"/configs/*; do
+    [ -f "$src" ] || continue
+    file=$(basename "$src")
+    [ ! -s "$CRASHDIR"/configs/"$file" ] && cp -f "$src" "$CRASHDIR"/configs/"$file" 2>/dev/null
+done
+for src in "$DEFAULTS_DIR"/task/*; do
+    [ -f "$src" ] || continue
+    file=$(basename "$src")
+    [ ! -s "$CRASHDIR"/task/"$file" ] && cp -f "$src" "$CRASHDIR"/task/"$file" 2>/dev/null
+done
+for src in "$DEFAULTS_DIR"/data/*; do
+    [ -f "$src" ] || continue
+    file=$(basename "$src")
+    [ ! -s "${SHELLCRASH_DATADIR:-/data}"/"$file" ] && cp -f "$src" "${SHELLCRASH_DATADIR:-/data}"/"$file" 2>/dev/null
 done
 mv -f "$CRASHDIR"/configs/ShellClash.cfg "$CFG_PATH" 2>/dev/null
 mv -f "$CRASHDIR"/geosite.dat "$CRASHDIR"/GeoSite.dat 2>/dev/null

@@ -3,6 +3,7 @@ set -eu
 
 CRASHDIR="${CRASHDIR:-/etc/ShellCrash}"
 DATADIR="${SHELLCRASH_DATADIR:-/data}"
+DEFAULTS_DIR="${SHELLCRASH_DEFAULTS_DIR:-/usr/local/share/shellcrash/defaults}"
 export CRASHDIR
 
 for dir in configs yamls jsons ruleset ui task tools; do
@@ -10,18 +11,27 @@ for dir in configs yamls jsons ruleset ui task tools; do
 done
 mkdir -p /tmp/ShellCrash
 
-seed_file() {
+install_default_file() {
     src="$1"
     dst="$2"
-    [ -s "$dst" ] || [ ! -f "$src" ] || cp -f "$src" "$dst"
+    [ -s "$dst" ] && return 0
+    [ -f "$src" ] || return 0
+    cp -f "$src" "$dst"
 }
 
-for file in fake_ip_filter mac web_save servers.list fake_ip_filter.list fallback_filter.list singbox_providers.list clash_providers.list; do
-    seed_file "$CRASHDIR/$file" "$DATADIR/configs/$file"
-done
-for file in task.list task_en.list; do
-    seed_file "$CRASHDIR/$file" "$DATADIR/task/$file"
-done
+install_default_dir() {
+    srcdir="$1"
+    dstdir="$2"
+    [ -d "$srcdir" ] || return 0
+    for src in "$srcdir"/*; do
+        [ -f "$src" ] || continue
+        install_default_file "$src" "$dstdir/$(basename "$src")"
+    done
+}
+
+install_default_dir "$DEFAULTS_DIR/configs" "$DATADIR/configs"
+install_default_dir "$DEFAULTS_DIR/task" "$DATADIR/task"
+install_default_dir "$DEFAULTS_DIR/data" "$DATADIR"
 
 if [ -x "$DATADIR/CrashCore" ]; then
     cp -f "$DATADIR/CrashCore" /tmp/ShellCrash/CrashCore

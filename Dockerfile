@@ -2,12 +2,16 @@ FROM juewuy/shellcrash:latest
 
 ENV CRASHDIR=/etc/ShellCrash \
     SHELLCRASH_DATADIR=/data \
+    SHELLCRASH_DEFAULTS_DIR=/usr/local/share/shellcrash/defaults \
     TZ=Asia/Shanghai
 
 USER root
 
 COPY init.sh menu.sh start.sh /etc/ShellCrash/
-COPY clash_providers.list cn_ip.txt cn_ipv6.txt fake_ip_filter.list fallback_filter.list servers.list singbox_providers.list task.list task_en.list version README.md /etc/ShellCrash/
+COPY cn_ip.txt cn_ipv6.txt version README.md /etc/ShellCrash/
+COPY fake_ip_filter.list fallback_filter.list servers.list singbox_providers.list clash_providers.list /usr/local/share/shellcrash/defaults/configs/
+COPY task.list task_en.list /usr/local/share/shellcrash/defaults/task/
+COPY cn_ip.txt cn_ipv6.txt /usr/local/share/shellcrash/defaults/data/
 COPY libs /etc/ShellCrash/libs
 COPY menus /etc/ShellCrash/menus
 COPY starts /etc/ShellCrash/starts
@@ -25,7 +29,7 @@ RUN set -eux; \
     chmod 755 /etc/ShellCrash/init.sh /etc/ShellCrash/menu.sh /etc/ShellCrash/start.sh /usr/local/bin/shellcrash-entrypoint; \
     printf '%s\n' '#!/bin/sh' 'CRASHDIR=${CRASHDIR:-/etc/ShellCrash}' 'export CRASHDIR' 'exec "$CRASHDIR/menu.sh" "$@"' >/usr/local/bin/crash; \
     chmod 755 /usr/local/bin/crash; \
-    chown -R 1000:1000 /etc/ShellCrash /data /tmp/ShellCrash /usr/local/bin/shellcrash-entrypoint
+    chown -R 1000:1000 /etc/ShellCrash /data /tmp/ShellCrash /usr/local/bin/shellcrash-entrypoint /usr/local/share/shellcrash
 
 USER 1000:1000
 WORKDIR /etc/ShellCrash
