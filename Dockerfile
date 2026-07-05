@@ -20,9 +20,11 @@ RUN set -eux; \
         ln -s "/data/${dir}" "/etc/ShellCrash/${dir}"; \
     done; \
     find /etc/ShellCrash /usr/local/bin/shellcrash-entrypoint -type f -exec sed -i 's/\r$//' {} +; \
+    sed -i '/ShellCrash\/menu.sh/d; /export CRASHDIR=/d; /alias .*crash=/d' /etc/profile 2>/dev/null || true; \
     find /etc/ShellCrash -name '*.sh' -exec chmod 755 {} +; \
     chmod 755 /etc/ShellCrash/init.sh /etc/ShellCrash/menu.sh /etc/ShellCrash/start.sh /usr/local/bin/shellcrash-entrypoint; \
-    ln -sf /etc/ShellCrash/menu.sh /usr/local/bin/crash; \
+    printf '%s\n' '#!/bin/sh' 'CRASHDIR=${CRASHDIR:-/etc/ShellCrash}' 'export CRASHDIR' 'exec "$CRASHDIR/menu.sh" "$@"' >/usr/local/bin/crash; \
+    chmod 755 /usr/local/bin/crash; \
     chown -R 1000:1000 /etc/ShellCrash /data /tmp/ShellCrash /usr/local/bin/shellcrash-entrypoint
 
 USER 1000:1000

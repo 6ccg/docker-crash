@@ -4,6 +4,10 @@
 [ -n "$__IS_MODULE_2_SETTINGS_LOADED" ] && return
 __IS_MODULE_2_SETTINGS_LOADED=1
 
+is_container_proxy_mode(){
+    [ "$systype" = "container" ] && [ "$firewall_area" != "5" ]
+}
+
 settings() { #功能设置
     #获取设置默认显示
     [ -z "$skip_cert" ] && skip_cert=ON
@@ -16,9 +20,13 @@ settings() { #功能设置
     echo "-----------------------------------------------"
     echo -e "\033[30;47m欢迎使用功能设置菜单：\033[0m"
     echo "-----------------------------------------------"
-    echo -e " 1 路由模式设置:	\033[36m$redir_mod\033[0m"
+    if is_container_proxy_mode; then
+        echo -e " 1 Docker代理模式:	\033[36m纯净代理\033[0m"
+    else
+        echo -e " 1 路由模式设置:	\033[36m$redir_mod\033[0m"
+    fi
 	echo -e " 2 DNS设置：		\033[36m$dns_mod\033[0m"
-	echo -e " 3 透明路由\033[32m流量过滤\033[0m"
+    is_container_proxy_mode || echo -e " 3 透明路由\033[32m流量过滤\033[0m"
     [ "$disoverride" != "1" ] && {
         echo -e " 4 跳过证书验证：	\033[36m$skip_cert\033[0m"
 		echo -e " 5 启用域名嗅探:	\033[36m$sniffer\033[0m"
@@ -34,7 +42,10 @@ settings() { #功能设置
     0)
 	;;
     1)
-        if [ "$USER" != "root" -a "$USER" != "admin" ]; then
+        if is_container_proxy_mode; then
+            echo "-----------------------------------------------"
+            echo -e "\033[33m普通 Docker 模式只提供 mixed 代理端口，不启用透明路由/TUN/防火墙劫持。\033[0m"
+        elif [ "$USER" != "root" -a "$USER" != "admin" ]; then
             echo "-----------------------------------------------"
             read -p "非root用户可能无法正确配置其他模式！依然尝试吗？(1/0) > " res
             [ "$res" = 1 ] && set_redir_mod
@@ -50,7 +61,12 @@ settings() { #功能设置
         settings
 	;;
     3)
-        set_fw_filter
+        if is_container_proxy_mode; then
+            echo "-----------------------------------------------"
+            echo -e "\033[33m普通 Docker 模式不配置透明路由流量过滤。\033[0m"
+        else
+            set_fw_filter
+        fi
 		sleep 1
         settings
 	;;
@@ -711,12 +727,12 @@ set_adv_config() { #端口设置
     echo "-----------------------------------------------"
     echo -e " 1 修改Http/Sock5端口：	\033[36m$mix_port\033[0m"
     echo -e " 2 设置Http/Sock5密码：	\033[36m$auth\033[0m"
-    echo -e " 3 修改Redir/Tproxy端口：\033[36m$redir_port,$((redir_port + 1))\033[0m"
-    echo -e " 4 修改DNS监听端口：	\033[36m$dns_port\033[0m"
+    is_container_proxy_mode || echo -e " 3 修改Redir/Tproxy端口：\033[36m$redir_port,$((redir_port + 1))\033[0m"
+    is_container_proxy_mode || echo -e " 4 修改DNS监听端口：	\033[36m$dns_port\033[0m"
     echo -e " 5 修改面板访问端口：	\033[36m$db_port\033[0m"
     echo -e " 6 设置面板访问密码：	\033[36m$secret\033[0m"
-    echo -e " 8 自定义本机host地址：	\033[36m$host\033[0m"
-    echo -e " 9 自定义路由表：	\033[36m$table,$((table + 1))\033[0m"
+    is_container_proxy_mode || echo -e " 8 自定义本机host地址：	\033[36m$host\033[0m"
+    is_container_proxy_mode || echo -e " 9 自定义路由表：	\033[36m$table,$((table + 1))\033[0m"
     echo -e " 0 返回上级菜单"
     read -p "请输入对应数字 > " num
     case "$num" in
@@ -754,12 +770,20 @@ set_adv_config() { #端口设置
         set_adv_config
 	;;
     3)
-        xport=redir_port
-        inputport
+        if is_container_proxy_mode; then
+            echo -e "\033[33m普通 Docker 模式不使用 Redir/Tproxy 端口。\033[0m"
+        else
+            xport=redir_port
+            inputport
+        fi
 	;;
     4)
-        xport=dns_port
-        inputport
+        if is_container_proxy_mode; then
+            echo -e "\033[33m普通 Docker 模式不对外暴露 DNS 端口。\033[0m"
+        else
+            xport=dns_port
+            inputport
+        fi
 	;;
     5)
         xport=db_port
@@ -775,6 +799,12 @@ set_adv_config() { #端口设置
         set_adv_config
 	;;
     8)
+        if is_container_proxy_mode; then
+            echo -e "\033[33m普通 Docker 模式不需要设置本机透明路由 host 地址。\033[0m"
+            sleep 1
+            set_adv_config
+            return
+        fi
         echo "-----------------------------------------------"
         echo -e "\033[33m如果你的局域网网段不是192.168.x或172.16.x或10.x开头，请务必修改！\033[0m"
         echo -e "\033[31m设置后如本机host地址有变动，请务必重新修改！\033[0m"
@@ -796,6 +826,12 @@ set_adv_config() { #端口设置
         set_adv_config
 	;;
     9)
+        if is_container_proxy_mode; then
+            echo -e "\033[33m普通 Docker 模式不使用策略路由表。\033[0m"
+            sleep 1
+            set_adv_config
+            return
+        fi
         echo "-----------------------------------------------"
         echo -e "\033[33m仅限Tproxy、Tun或混合模式路由表出现冲突时才需要设置！\033[0m"
         read -p "请输入路由表地址(不明勿动！建议102-125之间) > " table

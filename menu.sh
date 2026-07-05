@@ -18,12 +18,14 @@ CFG_PATH="$CRASHDIR"/configs/ShellCrash.cfg
 #通用工具
 . "$CRASHDIR"/libs/set_config.sh
 . "$CRASHDIR"/libs/check_cmd.sh
-. "$CRASHDIR"/libs/check_autostart.sh
 . "$CRASHDIR"/menus/1_start.sh
 . "$CRASHDIR"/menus/running_status.sh
 errornum() {
     echo "-----------------------------------------------"
     echo -e "\033[31m请输入正确的字母或数字！\033[0m"
+}
+is_container_proxy(){
+    [ "$systype" = "container" ] && [ "$firewall_area" != "5" ]
 }
 checkrestart() {
     echo "-----------------------------------------------"
@@ -34,8 +36,13 @@ checkrestart() {
 }
 
 checkport() { #检查端口冲突
-    for portx in $dns_port $mix_port $redir_port $((redir_port + 1)) $db_port; do
-        if [ -n "$(netstat -ntul 2>&1 | grep ':$portx ')" ]; then
+    if is_container_proxy; then
+        check_ports="$mix_port $db_port"
+    else
+        check_ports="$dns_port $mix_port $redir_port $((redir_port + 1)) $db_port"
+    fi
+    for portx in $check_ports; do
+        if [ -n "$(netstat -ntul 2>&1 | grep ":$portx ")" ]; then
             echo "-----------------------------------------------"
             echo -e "检测到端口【$portx】被以下进程占用！内核可能无法正常启动！\033[33m"
             echo $(netstat -ntul | grep :$portx | head -n 1)
@@ -65,13 +72,8 @@ ckstatus() { #脚本启动前检查
         hostdir=":$db_port/ui"
     fi
     #开机自启检测
-    if check_autostart; then
-        auto="\033[32m已设置开机启动！\033[0m"
-        auto1="\033[36m禁用\033[0mShellCrash开机启动"
-    else
-        auto="\033[31m未设置开机启动！\033[0m"
-        auto1="\033[36m允许\033[0mShellCrash开机启动"
-    fi
+    auto="\033[32m由 Docker restart 策略托管！\033[0m"
+    auto1="\033[36m查看\033[0mDocker重启策略"
     #获取运行状态
     PID=$(pidof CrashCore | awk '{print $NF}')
     if [ -n "$PID" ]; then
@@ -157,7 +159,7 @@ main_menu() {
     echo -e " 1 \033[32m启动/重启服务\033[0m"
     echo -e " 2 \033[36m功能设置\033[0m"
     echo -e " 3 \033[31m停止服务\033[0m"
-    echo -e " 4 \033[33m启动设置\033[0m"
+    echo -e " 4 \033[33mDocker重启策略\033[0m"
     echo -e " 5 设置\033[32m自动任务\033[0m"
     echo -e " 6 管理\033[36m配置文件\033[0m"
     echo -e " 7 \033[33m访问与控制\033[0m"
@@ -193,7 +195,9 @@ main_menu() {
         main_menu
 	;;
     4)
-        . "$CRASHDIR"/menus/4_setboot.sh && setboot
+        echo "-----------------------------------------------"
+        echo -e "\033[33mDocker 模式由 compose 的 restart 策略管理自启，不再写入系统服务或定时任务。\033[0m"
+        sleep 1
         main_menu
 	;;
     5)
@@ -295,7 +299,7 @@ case "$1" in
 		echo -----------------------------------------
 		echo " crash -s start	启动服务"
 		echo " crash -s stop	停止服务"
-		echo " $CRASHDIR/start.sh init	开机初始化"
+		echo " $CRASHDIR/start.sh init	Docker初始化"
 		echo -----------------------------------------
 		echo "在线求助：t.me/ShellClash"
 		echo "官方博客：juewuy.github.io"
