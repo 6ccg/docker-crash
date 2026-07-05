@@ -3,7 +3,6 @@ services:
     image: ghcr.io/6ccg/docker-crash:latest
     container_name: shellcrash
     restart: unless-stopped
-    user: "1000:1000"
     ports:
       - "7890:7890/tcp"
       - "7890:7890/udp"
