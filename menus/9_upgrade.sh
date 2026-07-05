@@ -741,13 +741,8 @@ getdb() {
     echo "正在连接服务器获取安装文件…………"
     rm -rf "$TMPDIR"/dashboard_extract "$TMPDIR"/clashdb.tar.gz
     mkdir -p "$TMPDIR"/dashboard_extract
-    if [ -n "$db_url" ]; then
-        db_archive="$TMPDIR/clashdb.${db_archive_ext:-tar.gz}"
-        webget "$db_archive" "$db_url"
-    else
-        db_archive="$TMPDIR/clashdb.tar.gz"
-        get_bin "$db_archive" bin/dashboard/${db_type}.tar.gz
-    fi
+    db_archive="$TMPDIR/clashdb.tar.gz"
+    get_bin "$db_archive" bin/dashboard/${db_type}.tar.gz
     if [ "$?" = "1" ]; then
         echo "-----------------------------------------------"
         echo -e "\033[31m文件下载失败！\033[0m"
@@ -840,9 +835,9 @@ setdb() {
         echo -e "\033[32m打开管理面板的速度更快且更稳定\033[0m"
         echo "-----------------------------------------------"
         echo -e "请选择面板\033[33m安装类型：\033[0m"
-        echo -e " 1 安装\033[32mZashboard面板\033[0m(官方最新，约1.7mb)"
-        echo -e " 2 安装\033[32mMetaCubeXD面板\033[0m(官方最新，约2.4mb)"
-        echo -e " 3 安装\033[32mYacd-Meta面板\033[0m(gh-pages，约1.7mb)"
+        echo -e " 1 安装\033[32mZashboard面板\033[0m(ShellCrash适配包，约0.8mb)"
+        echo -e " 2 安装\033[32mMetaXD面板\033[0m(ShellCrash适配包，约1.9mb)"
+        echo -e " 3 安装\033[32mYacd-Meta面板\033[0m(ShellCrash适配包，约0.7mb)"
         echo "-----------------------------------------------"
         echo -e " 9 卸载\033[33m本地面板\033[0m"
         echo " 0 返回上级菜单"
@@ -853,23 +848,16 @@ setdb() {
             ;;
         1)
             db_type=zashboard
-            db_url="https://github.com/Zephyruso/zashboard/releases/latest/download/dist-cdn-fonts.zip"
-            db_archive_ext=zip
             setconfig external_ui_url "https://github.com/Zephyruso/zashboard/releases/latest/download/dist-cdn-fonts.zip"
             dbdir
             ;;
         2)
             db_type=meta_xd
-            db_url="https://github.com/MetaCubeX/metacubexd/releases/latest/download/compressed-dist.tgz"
-            db_archive_ext=tar.gz
-            setconfig external_ui_url "https://github.com/MetaCubeX/metacubexd/releases/latest/download/compressed-dist.tgz"
+            setconfig external_ui_url "https://raw.githubusercontent.com/juewuy/ShellCrash/update/bin/dashboard/meta_xd.tar.gz"
             dbdir
             ;;
         3)
             db_type=meta_yacd
-            db_url="https://github.com/MetaCubeX/Yacd-meta/archive/refs/heads/gh-pages.zip"
-            db_archive_ext=zip
-            setconfig external_ui_url "https://github.com/MetaCubeX/Yacd-meta/archive/refs/heads/gh-pages.zip"
             dbdir
             ;;
         9)
