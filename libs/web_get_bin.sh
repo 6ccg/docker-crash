@@ -13,6 +13,7 @@ get_bin() { #专用于项目内部文件的下载
         fi
     else
         bin_url="$update_url/$2"
+        echo "$2" | grep -q '^bin/' && bin_url=$(echo "$bin_url" | sed 's|@master/|@update/|; s|/master/bin/|/update/bin/|')
     fi
     webget "$1" "$bin_url" "$3" "$4" "$5" "$6"
 }
