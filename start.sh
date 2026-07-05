@@ -61,20 +61,25 @@ container_shutdown(){
 }
 start_container(){
     [ -n "$(pidof CrashCore)" ] && $0 stop
-    rm -f "$CRASHDIR"/\.start_error
-    bfstart || exit 1
-    mkdir -p "$TMPDIR"
-    date +%s >"$TMPDIR"/crash_start_time
-    container_after_start &
     trap 'container_shutdown; exit 0' INT TERM
-    logger "ShellCrash Docker代理模式启动：代理端口 ${mix_port}/tcp+udp，面板端口 ${db_port}/tcp" 32
-    $COMMAND &
-    core_pid=$!
-    echo "$core_pid" >"$TMPDIR/shellcrash.pid"
-    wait "$core_pid"
-    status=$?
-    rm -f "$TMPDIR/shellcrash.pid"
-    exit "$status"
+    while :; do
+        rm -f "$CRASHDIR"/\.start_error
+        bfstart || exit 1
+        mkdir -p "$TMPDIR"
+        date +%s >"$TMPDIR"/crash_start_time
+        container_after_start &
+        logger "ShellCrash Docker代理模式启动：代理端口 ${mix_port}/tcp+udp，面板端口 ${db_port}/tcp" 32
+        $COMMAND &
+        core_pid=$!
+        echo "$core_pid" >"$TMPDIR/shellcrash.pid"
+        wait "$core_pid"
+        status=$?
+        rm -f "$TMPDIR/shellcrash.pid"
+        core_pid=
+        [ -f "$TMPDIR/restart_core" ] || exit "$status"
+        rm -f "$TMPDIR/restart_core"
+        logger "ShellCrash Docker代理模式正在重启内核……" 33
+    done
 }
 start_macvlan_container(){
     [ -n "$(pidof CrashCore)" ] && $0 stop
@@ -95,12 +100,23 @@ stop_container(){
     container_shutdown
     rm -rf "$TMPDIR"/CrashCore
 }
+restart_container_core(){
+    mkdir -p "$TMPDIR"
+    touch "$TMPDIR/restart_core"
+    container_shutdown
+}
 
 case "$1" in
 
 start)
     require_container
-    is_container_proxy && start_container
+    is_container_proxy && {
+        [ -n "$(pidof CrashCore)" ] && [ -f "$TMPDIR/shellcrash.pid" ] && {
+            restart_container_core
+            exit 0
+        }
+        start_container
+    }
     is_macvlan_mode && start_macvlan_container
     logger "不支持的 Docker 运行模式：firewall_area=$firewall_area" 31
     exit 1
@@ -121,6 +137,10 @@ stop)
     ;;
 restart)
     require_container
+    is_container_proxy && {
+        restart_container_core
+        exit 0
+    }
     $0 stop
     $0 start
     ;;

@@ -43,12 +43,6 @@ start_core() {
     fi
 }
 start_service() {
-    if [ "$systype" = "container" ]; then
-        echo "-----------------------------------------------"
-        echo -e "\033[33m正在请求 Docker 重启容器，当前菜单会话将断开……\033[0m"
-        (sleep 1; kill -TERM 1) >/dev/null 2>&1 &
-        exit 0
-    fi
     if [ "$firewall_area" = 5 ]; then
         "$CRASHDIR"/start.sh start
         echo -e "\033[32m已完成防火墙设置！\033[0m"
