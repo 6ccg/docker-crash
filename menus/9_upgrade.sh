@@ -6,6 +6,7 @@ __IS_MODULE_9_UPGRADE_LOADED=1
 
 . "$CRASHDIR"/libs/check_dir_avail.sh
 . "$CRASHDIR"/libs/check_cpucore.sh
+. "$CRASHDIR"/libs/set_config.sh
 . "$CRASHDIR"/libs/web_get_bin.sh
 
 error_down(){
@@ -736,10 +737,17 @@ done
 
 #Dashboard
 getdb() {
-    dblink="${update_url}/"
     echo "-----------------------------------------------"
     echo "正在连接服务器获取安装文件…………"
-    get_bin "$TMPDIR"/clashdb.tar.gz bin/dashboard/${db_type}.tar.gz
+    rm -rf "$TMPDIR"/dashboard_extract "$TMPDIR"/clashdb.tar.gz
+    mkdir -p "$TMPDIR"/dashboard_extract
+    if [ -n "$db_url" ]; then
+        db_archive="$TMPDIR/clashdb.${db_archive_ext:-tar.gz}"
+        webget "$db_archive" "$db_url"
+    else
+        db_archive="$TMPDIR/clashdb.tar.gz"
+        get_bin "$db_archive" bin/dashboard/${db_type}.tar.gz
+    fi
     if [ "$?" = "1" ]; then
         echo "-----------------------------------------------"
         echo -e "\033[31m文件下载失败！\033[0m"
@@ -748,23 +756,28 @@ getdb() {
         return 1
     else
         echo -e "\033[33m下载成功，正在解压文件！\033[0m"
-        mkdir -p $dbdir >/dev/null
-        tar -zxf "$TMPDIR/clashdb.tar.gz" ${tar_para} -C $dbdir >/dev/null
-        [ $? -ne 0 ] && echo "文件解压失败！" && rm -rf "$TMPDIR"/clashfm.tar.gz && exit 1
+        mkdir -p "$dbdir" >/dev/null
+        case "$db_archive" in
+        *.zip)
+            unzip -oq "$db_archive" -d "$TMPDIR"/dashboard_extract >/dev/null
+            ;;
+        *)
+            tar -zxf "$db_archive" ${tar_para} -C "$TMPDIR"/dashboard_extract >/dev/null
+            ;;
+        esac
+        [ $? -ne 0 ] && echo "文件解压失败！" && rm -rf "$db_archive" "$TMPDIR"/dashboard_extract && exit 1
+        index_file=$(find "$TMPDIR"/dashboard_extract -name index.html -type f | head -n 1)
+        [ -z "$index_file" ] && echo "未找到面板入口文件！" && rm -rf "$db_archive" "$TMPDIR"/dashboard_extract && exit 1
+        index_dir=$(dirname "$index_file")
+        cp -rf "$index_dir"/. "$dbdir"/
         #修改默认host和端口
-        if [ "$db_type" = "clashdb" -o "$db_type" = "meta_db" -o "$db_type" = "zashboard" ]; then
-            sed -i "s/127.0.0.1/${host}/g" $dbdir/assets/*.js
-            sed -i "s/9090/${db_port}/g" $dbdir/assets/*.js
-        elif [ "$db_type" = "meta_xd" ]; then
-            sed -i "s/127.0.0.1:9090/${host}:${db_port}/g" $dbdir/_nuxt/*.js
-        else
-            sed -i "s/127.0.0.1:9090/${host}:${db_port}/g" $dbdir/*.html
-        fi
+        find "$dbdir" -type f \( -name '*.js' -o -name '*.html' \) -exec sed -i "s/127.0.0.1:9090/${host}:${db_port}/g; s/127.0.0.1/${host}/g; s/:9090/:${db_port}/g" {} +
         #写入配置文件
         setconfig hostdir "'$hostdir'"
+        touch "$dbdir"/CNAME
         echo "-----------------------------------------------"
         echo -e "\033[32m面板安装成功！\033[36m如未生效，请使用【Ctrl+F5】强制刷新浏览器！！！\033[0m"
-        rm -rf "$TMPDIR"/clashdb.tar.gz
+        rm -rf "$db_archive" "$TMPDIR"/dashboard_extract
     fi
     sleep 1
 }
@@ -827,14 +840,9 @@ setdb() {
         echo -e "\033[32m打开管理面板的速度更快且更稳定\033[0m"
         echo "-----------------------------------------------"
         echo -e "请选择面板\033[33m安装类型：\033[0m"
-        echo "-----------------维护中------------------------"
-        echo -e " 1 安装\033[32mzashboard面板\033[0m(约2.2mb)"
-        echo -e " 2 安装\033[32mMetaXD面板\033[0m(约1.5mb)"
-        echo -e " 3 安装\033[32mYacd-Meta魔改面板\033[0m(约1.7mb)"
-        echo "---------------已停止维护----------------------"
-        echo -e " 4 安装\033[32m基础面板\033[0m(约500kb)"
-        echo -e " 5 安装\033[32mMeta基础面板\033[0m(约800kb)"
-        echo -e " 6 安装\033[32mYacd面板\033[0m(约1.1mb)"
+        echo -e " 1 安装\033[32mZashboard面板\033[0m(官方最新，约1.7mb)"
+        echo -e " 2 安装\033[32mMetaCubeXD面板\033[0m(官方最新，约2.4mb)"
+        echo -e " 3 安装\033[32mYacd-Meta面板\033[0m(gh-pages，约1.7mb)"
         echo "-----------------------------------------------"
         echo -e " 9 卸载\033[33m本地面板\033[0m"
         echo " 0 返回上级菜单"
@@ -845,28 +853,23 @@ setdb() {
             ;;
         1)
             db_type=zashboard
+            db_url="https://github.com/Zephyruso/zashboard/releases/latest/download/dist-cdn-fonts.zip"
+            db_archive_ext=zip
             setconfig external_ui_url "https://github.com/Zephyruso/zashboard/releases/latest/download/dist-cdn-fonts.zip"
             dbdir
             ;;
         2)
             db_type=meta_xd
-            setconfig external_ui_url "https://raw.githubusercontent.com/juewuy/ShellCrash/update/bin/dashboard/meta_xd.tar.gz"
+            db_url="https://github.com/MetaCubeX/metacubexd/releases/latest/download/compressed-dist.tgz"
+            db_archive_ext=tar.gz
+            setconfig external_ui_url "https://github.com/MetaCubeX/metacubexd/releases/latest/download/compressed-dist.tgz"
             dbdir
             ;;
         3)
             db_type=meta_yacd
-            dbdir
-            ;;
-        4)
-            db_type=clashdb
-            dbdir
-            ;;
-        5)
-            db_type=meta_db
-            dbdir
-            ;;
-        6)
-            db_type=yacd
+            db_url="https://github.com/MetaCubeX/Yacd-meta/archive/refs/heads/gh-pages.zip"
+            db_archive_ext=zip
+            setconfig external_ui_url "https://github.com/MetaCubeX/Yacd-meta/archive/refs/heads/gh-pages.zip"
             dbdir
             ;;
         9)
