@@ -172,10 +172,11 @@ main_menu() {
     case "$num" in
     0)
         exit
-	;;
+    ;;
     1)
         start_service
-        exit
+        sleep 1
+        main_menu
 	;;
     2)
         checkcfg=$(cat "$CFG_PATH")
