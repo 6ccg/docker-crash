@@ -735,6 +735,27 @@ done
 }
 
 #Dashboard
+ensure_dbdir() {
+    if [ -L "$dbdir" ]; then
+        db_target=$(readlink "$dbdir")
+        case "$db_target" in
+        /*)
+            mkdir -p "$db_target"
+            ;;
+        *)
+            mkdir -p "$(dirname "$dbdir")/$db_target"
+            ;;
+        esac
+    else
+        mkdir -p "$dbdir"
+    fi
+}
+
+clear_dbdir() {
+    ensure_dbdir || return 1
+    (cd "$dbdir" && rm -rf ./* ./.??* ./.[!.]*)
+}
+
 getdb() {
     echo "-----------------------------------------------"
     echo "正在连接服务器获取安装文件…………"
@@ -757,7 +778,11 @@ getdb() {
         return 1
     else
         echo -e "\033[33m下载成功，正在解压文件！\033[0m"
-        mkdir -p "$dbdir" >/dev/null
+        ensure_dbdir || {
+            echo "面板目录创建失败！"
+            rm -rf "$db_archive" "$TMPDIR"/dashboard_extract
+            return 1
+        }
         case "$db_archive" in
         *.zip)
             unzip -oq "$db_archive" -d "$TMPDIR"/dashboard_extract >/dev/null
@@ -790,9 +815,8 @@ dbdir() {
         echo "-----------------------------------------------"
         read -p "是否升级/覆盖安装？[1/0] > " res
         if [ "$res" = 1 ]; then
-            rm -rf "$BINDIR"/ui
             [ -f /www/clash/CNAME ] && rm -rf /www/clash && dbdir=/www/clash
-            [ -f "$CRASHDIR"/ui/CNAME ] && rm -rf "$CRASHDIR"/ui && dbdir="$CRASHDIR"/ui
+            [ -f "$CRASHDIR"/ui/CNAME ] && dbdir="$CRASHDIR"/ui && clear_dbdir
             getdb
         else
             echo -e "\033[33m安装已取消！\033[0m"
@@ -867,8 +891,8 @@ setdb() {
             read -p "确认卸载本地面板？(1/0) > " res
             if [ "$res" = 1 ]; then
                 rm -rf /www/clash
-                rm -rf "$CRASHDIR"/ui
-                rm -rf "$BINDIR"/ui
+                dbdir="$CRASHDIR"/ui
+                clear_dbdir
                 echo "-----------------------------------------------"
                 echo -e "\033[31m面板已经卸载！\033[0m"
                 sleep 1
