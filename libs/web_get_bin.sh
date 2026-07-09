@@ -23,10 +23,14 @@ get_bin() { #专用于项目内部文件的下载
 		[ -n "$release_type" ] && rt="$release_type" || rt=master
         echo "$2" | grep -q '^bin/' && rt=update #/bin文件改为在update分支下载
         echo "$2" | grep -qE '^public/|^rules/' && rt=dev #/public和/rules文件改为在dev分支下载    
+        server_url="$(grep "$url_id" "$CRASHDIR"/configs/servers.list 2>/dev/null | awk '{print $3}')"
+        [ -z "$server_url" ] && server_url="$update_url"
+        [ -z "$server_url" ] && server_url=https://testingcf.jsdelivr.net/gh/juewuy/ShellCrash
+        server_url=$(echo "$server_url" | sed 's/@.*$//')
         if [ "$url_id" = 101 -o "$url_id" = 104 ]; then
-            bin_url="$(grep "$url_id" "$CRASHDIR"/configs/servers.list | awk '{print $3}')@$rt/$2" #jsdelivr特殊处理
+            bin_url="$server_url@$rt/$2" #jsdelivr特殊处理
         else
-            bin_url="$(grep "$url_id" "$CRASHDIR"/configs/servers.list | awk '{print $3}')/$rt/$2"
+            bin_url="$server_url/$rt/$2"
         fi
     else
         bin_url="$update_url/$2"
