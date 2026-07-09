@@ -59,12 +59,23 @@ container_shutdown(){
     fi
     rm -f "$TMPDIR/shellcrash.pid"
 }
+container_hold_for_debug(){
+    status="$1"
+    mkdir -p "$TMPDIR"
+    echo "$status" >"$TMPDIR/start_failed.status" 2>/dev/null
+    logger "ShellCrash Docker代理模式启动失败，容器将保持运行以便排查。" 31
+    logger "请使用 docker exec -it shellcrash /bin/sh 进入容器，修复配置或核心后执行 docker restart shellcrash。" 33
+    while :; do
+        sleep 3600 &
+        wait "$!"
+    done
+}
 start_container(){
     [ -n "$(pidof CrashCore)" ] && $0 stop
     trap 'container_shutdown; exit 0' INT TERM
     while :; do
         rm -f "$CRASHDIR"/\.start_error
-        bfstart || exit 1
+        bfstart || container_hold_for_debug "$?"
         mkdir -p "$TMPDIR"
         date +%s >"$TMPDIR"/crash_start_time
         container_after_start &
@@ -76,7 +87,7 @@ start_container(){
         status=$?
         rm -f "$TMPDIR/shellcrash.pid"
         core_pid=
-        [ -f "$TMPDIR/restart_core" ] || exit "$status"
+        [ -f "$TMPDIR/restart_core" ] || container_hold_for_debug "$status"
         rm -f "$TMPDIR/restart_core"
         logger "ShellCrash Docker代理模式正在重启内核……" 33
     done

@@ -267,6 +267,12 @@ EOF
         cut -c 1- "$TMPDIR"/set.yaml $yaml_dns $yaml_add >"$TMPDIR"/config.yaml
         sed -i "/#自定义/d" "$TMPDIR"/config.yaml
         apply_container_yaml_override
+        "$TMPDIR"/CrashCore -t -d "$BINDIR" -f "$TMPDIR"/config.yaml >/dev/null
+        if [ "$?" != 0 ]; then
+            logger "$("$TMPDIR"/CrashCore -t -d "$BINDIR" -f "$TMPDIR"/config.yaml | grep -Eo 'error.*=.*')" 31
+            logger "基础配置文件校验失败！请修复配置或更换完整内核后重启容器。" 31
+            return 1
+        fi
     fi
     #建立软连接
     if [ "$systype" = 'container' ] && [ "$firewall_area" != '5' ]; then
