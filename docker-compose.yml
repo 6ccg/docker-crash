@@ -1,5 +1,7 @@
 services:
   shellcrash:
+    build:
+      context: .
     image: ghcr.io/6ccg/docker-crash:latest
     container_name: shellcrash
     restart: unless-stopped

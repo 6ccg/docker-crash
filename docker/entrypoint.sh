@@ -8,7 +8,9 @@ export CRASHDIR
 . "$CRASHDIR"/libs/docker_data.sh
 init_docker_data_defaults
 
-if [ -x "$DATADIR/CrashCore" ]; then
+if [ -f "$DATADIR/CrashCore.tar.gz" ]; then
+    :
+elif [ -x "$DATADIR/CrashCore" ]; then
     cp -f "$DATADIR/CrashCore" /tmp/ShellCrash/CrashCore
     chmod 755 /tmp/ShellCrash/CrashCore
 elif [ -f "$DATADIR/CrashCore.gz" ]; then

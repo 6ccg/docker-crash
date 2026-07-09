@@ -30,7 +30,10 @@ core_find(){
 	if [ ! -f "$TMPDIR"/CrashCore ];then
 		[ -n "$(find "$CRASHDIR"/CrashCore.* $find_para 2>/dev/null)" ] && [ "$CRASHDIR" != "$BINDIR" ] &&
 			mv -f "$CRASHDIR"/CrashCore.* "$BINDIR"/
-		core_dir=$(find "$BINDIR"/CrashCore.* $find_para 2>/dev/null | head -n 1)
+		for ext in tar.gz gz upx; do
+			core_dir=$(find "$BINDIR"/CrashCore."$ext" $find_para 2>/dev/null | head -n 1)
+			[ -n "$core_dir" ] && break
+		done
 		[ -n "$core_dir" ] && core_unzip "$core_dir" CrashCore
 	fi
 }
@@ -93,6 +96,7 @@ core_webget(){
 	. "$CRASHDIR"/libs/check_target.sh
 	if [ -z "$custcorelink" ];then
 		[ -z "$zip_type" ] && zip_type='tar.gz'
+		[ "$systype" = 'container' ] && [ "$zip_type" = 'upx' ] && zip_type='tar.gz'
 		get_bin "$TMPDIR/Coretmp.$zip_type" "bin/$crashcore/${target}-linux-${cpucore}.$zip_type"
 	else
 		case "$custcorelink" in
