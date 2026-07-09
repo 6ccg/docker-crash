@@ -8,12 +8,11 @@
 106#$CRASHDIR/task/task.sh web_save_auto#Automatically save panel configuration
 107#$CRASHDIR/task/task.sh ntp#Automatically sync NTP time
 
-111#$CRASHDIR/task/task.sh update_core#Automatically update core
-112#$CRASHDIR/task/task.sh update_scripts#Automatically update scripts
+#111#$CRASHDIR/task/task.sh update_core#Automatically update core
+#112#$CRASHDIR/task/task.sh update_scripts#Automatically update scripts
 113#$CRASHDIR/task/task.sh update_mmdb#Automatically update database files
 
 121#$CRASHDIR/task/task.sh reset_firewall#Reset transparent routing firewall
 122#sleep 70 && touch /etc/banner && reboot#Reboot router device – use with caution
-
 
 

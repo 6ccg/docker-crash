@@ -28,6 +28,10 @@ check_update(){ #检查更新工具
 	rm -rf "$TMPDIR"/crashversion
 }
 update_core(){ #自动更新内核
+	if [ "${SHELLCRASH_ALLOW_UPSTREAM_PROGRAM_DOWNLOADS:-}" != 1 ]; then
+		task_logger "任务【自动更新内核】已禁用-请使用官方或自定义核心"
+		return 0
+	fi
 	#检查版本
 	check_update bin/version
 	crash_v_new=$(eval echo \$${crashcore}_v)
@@ -55,6 +59,10 @@ update_core(){ #自动更新内核
 	fi
 }
 update_scripts(){ #自动更新脚本
+	if [ "${SHELLCRASH_ALLOW_UPSTREAM_PROGRAM_DOWNLOADS:-}" != 1 ]; then
+		task_logger "任务【自动更新脚本】已禁用-请通过当前 docker-crash 仓库更新镜像"
+		return 0
+	fi
 	#检查版本
 	check_update version
 	if [ -z "$versionsh" -o "$versionsh" = "versionsh_l" ];then

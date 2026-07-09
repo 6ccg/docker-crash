@@ -14,6 +14,9 @@ error_down(){
 	echo -e "或者参考 \033[32;4mhttps://juewuy.github.io/bdaz\033[0m 进行本地安装！"
 	sleep 1
 }
+program_updates_disabled(){
+	[ "${SHELLCRASH_ALLOW_UPSTREAM_PROGRAM_DOWNLOADS:-}" != 1 ]
+}
 
 # 更新/卸载功能菜单
 upgrade() {
@@ -106,6 +109,14 @@ upgrade() {
 
 #检查更新
 checkupdate(){
+	if program_updates_disabled; then
+		version_new="$versionsh_l"
+		meta_v="$core_v"
+		singboxr_v="$core_v"
+		singbox_v="$core_v"
+		clash_v="$core_v"
+		return 0
+	fi
 	echo -ne "\033[32m正在检查更新！\033[0m\r"
 	get_bin "$TMPDIR"/version_new version echooff
 	[ "$?" = "0" ] && {
@@ -124,6 +135,11 @@ checkupdate(){
 
 #更新脚本
 getscripts(){ 
+	if program_updates_disabled; then
+		echo -e "\033[31m管理脚本在线更新已禁用，请通过当前 docker-crash 仓库更新镜像。\033[0m"
+		sleep 1
+		return 1
+	fi
 	get_bin "$TMPDIR"/ShellCrash.tar.gz ShellCrash.tar.gz
 	if [ "$?" != "0" ];then
 		echo -e "\033[33m文件下载失败！\033[0m"
@@ -235,6 +251,7 @@ getcore(){ #下载内核文件
 	[ -z "$cpucore" ] && check_cpucore
 	[ "$crashcore" = unknow ] && setcoretype
 	echo "$crashcore" | grep -q 'singbox' && core_new=singbox || core_new=clash
+	[ -z "$custcorelink" ] && zip_type='tar.gz'
 	#获取在线内核文件
 	echo "-----------------------------------------------"
 	echo "正在在线获取$crashcore核心文件……"
@@ -258,7 +275,7 @@ getcore(){ #下载内核文件
 	esac
 }
 setcustcore(){ #自定义内核
-	checkcustcore(){
+	fetchcustcore(){
 		[ "$api_tag" = "latest" ] && api_url=latest || api_url="tags/$api_tag"
 		#通过githubapi获取内核信息
 		echo -e "\033[32m正在获取内核文件链接！\033[0m"
@@ -270,43 +287,46 @@ setcustcore(){ #自定义内核
 			[ -n "$(echo $cpucore | grep mips)" ] && cpu_type=mips || cpu_type=$cpucore
 			cat "$TMPDIR"/github_api | grep "browser_download_url" | grep -oE "https://github.com/${project}/releases/download.*linux.*${cpu_type}.*\.gz\"$"  | sed 's/"//' > "$TMPDIR"/core.list
 			rm -rf "$TMPDIR"/github_api
-			#
-			if [ -s "$TMPDIR"/core.list ];then
-				echo "-----------------------------------------------"
-				echo -e "内核版本：\033[36m$release_tag\033[0m"
-				echo -e "发布时间：\033[33m$release_date\033[0m"
-				echo -e "更新时间：\033[32m$update_date\033[0m"
-				echo "-----------------------------------------------"
-				echo -e "\033[33m请确认内核信息并选择：\033[0m"
-				cat "$TMPDIR"/core.list | grep -oE "$release_tag.*" | sed 's|.*/||' | awk '{print " "NR" "$1}'
-				echo -e " 0 返回上级菜单"
-				echo "-----------------------------------------------"
-				read -p "请输入对应数字 > " num
-				case "$num" in
-				0)
-					setcustcore
-				;;
-				[1-9]|[1-9][0-9])
-					if [ "$num" -le "$(wc -l < "$TMPDIR"/core.list)" ];then
-						custcorelink=$(sed -n "$num"p "$TMPDIR"/core.list)
-						getcore
-					else
-						errornum
-					fi
-				;;
-				*)
-					errornum
-				;;
-				esac
-			else
-				echo -e "\033[31m找不到可用内核，可能是作者没有编译相关CPU架构版本的内核文件！\033[0m"
-				sleep 1
-			fi
 		else
 			echo -e "\033[31m查找失败，请尽量在服务启动后再使用本功能！\033[0m"
 			sleep 1
+			return 1
 		fi
+		if [ ! -s "$TMPDIR"/core.list ];then
+			echo -e "\033[31m找不到可用内核，可能是作者没有编译相关CPU架构版本的内核文件！\033[0m"
+			sleep 1
+			return 1
+		fi
+		echo "-----------------------------------------------"
+		echo -e "内核版本：\033[36m$release_tag\033[0m"
+		echo -e "发布时间：\033[33m$release_date\033[0m"
+		echo -e "更新时间：\033[32m$update_date\033[0m"
+		echo "-----------------------------------------------"
+		echo -e "\033[33m请确认内核信息并选择：\033[0m"
+		cat "$TMPDIR"/core.list | grep -oE "$release_tag.*" | sed 's|.*/||' | awk '{print " "NR" "$1}'
+		echo -e " 0 返回上级菜单"
+		echo "-----------------------------------------------"
+		read -p "请输入对应数字 > " num
+		case "$num" in
+		0)
+			setcustcore
+		;;
+		[1-9]|[1-9][0-9])
+			if [ "$num" -le "$(wc -l < "$TMPDIR"/core.list)" ];then
+				custcorelink=$(sed -n "$num"p "$TMPDIR"/core.list)
+				getcore
+			else
+				errornum
+			fi
+		;;
+		*)
+			errornum
+		;;
+		esac
 		rm -rf "$TMPDIR"/core.list
+	}
+	checkcustcore(){
+		fetchcustcore
 	}
 	[ -z "$cpucore" ] && check_cpucore
 	echo "-----------------------------------------------"
@@ -323,7 +343,6 @@ setcustcore(){ #自定义内核
 	echo -e "1 \033[36mMetaCubeX/mihomo\033[32m@release\033[0m版本官方内核"
 	echo -e "2 \033[36mvernesong/mihomo\033[32m@alpha\033[0m版本内核(支持Smart策略)"
 	echo -e "3 \033[36mSagerNet/sing-box\033[32m@release\033[0m版本官方内核"
-	echo -e "4 Premium-2023.08.17内核(已停止维护)"
 	echo -e "9 \033[33m自定义内核链接 \033[0m"
 	echo "-----------------------------------------------"
 	echo -e " 0 返回上级菜单"
@@ -347,12 +366,6 @@ setcustcore(){ #自定义内核
 		crashcore=singbox
 		checkcustcore
 	;;
-	4)
-		project=juewuy/ShellCrash
-		api_tag=clash.premium.latest
-		crashcore=clashpre
-		checkcustcore
-	;;
 	9)
 		read -p "请输入自定义内核的链接地址(必须是以.tar.gz、.upx或.gz结尾的压缩文件) > " link
 		[ -n "$link" ] && custcorelink="$link"
@@ -364,6 +377,13 @@ setcustcore(){ #自定义内核
 	esac
 }
 setziptype(){
+	[ "$systype" = 'container' ] && {
+		zip_type='tar.gz'
+		setconfig zip_type "$zip_type"
+		echo -e "\033[32mDocker版本仅使用标准完整内核：tar.gz\033[0m"
+		sleep 1
+		return 0
+	}
 	echo "-----------------------------------------------"
 	echo -e "请选择内核内核分支及压缩方式：\033[0m"
 	echo "-----------------------------------------------"
@@ -397,6 +417,7 @@ setcore() {
         # 获取核心及版本信息
         [ -z "$crashcore" ] && crashcore="unknow"
         [ -z "$zip_type" ] && zip_type="tar.gz"
+        [ "$systype" = 'container' ] && zip_type="tar.gz"
         echo "$crashcore" | grep -q 'singbox' && core_old=singbox || core_old=clash
         [ -n "$custcorelink" ] && custcore="$(echo $custcorelink | sed 's#.*github.com##; s#/releases/download/#@#')"
         ###
@@ -984,17 +1005,12 @@ setserver() {
 		[ -n "$url_id" ] && url_name=$(grep "$url_id" "$CRASHDIR"/configs/servers.list 2>/dev/null | awk '{print $2}') || url_name="$update_url"
 	
 		echo "-----------------------------------------------"
-		echo -e "\033[30;47m切换ShellCrash版本及更新源地址\033[0m"
-		echo -e "当前版本：\033[4;33m$release_name\033[0m 当前源：\033[4;32m$url_name\033[0m"
+		echo -e "\033[30;47m切换资源下载源地址\033[0m"
+		echo -e "当前资源源：\033[4;32m$url_name\033[0m"
 		echo "-----------------------------------------------"
 		grep -E "^1|$release_name" "$CRASHDIR"/configs/servers.list | awk '{print " "NR" "$2}'
 		echo "-----------------------------------------------"
-		echo -e " a 切换至\033[32m稳定版-stable\033[0m"
-		echo -e " b 切换至\033[36m公测版-master\033[0m"
-		echo -e " c 切换至\033[33m开发版-dev\033[0m"
-		echo "-----------------------------------------------"
 		echo -e " d 自定义源地址(用于本地源或自建源)"
-		echo -e " e \033[31m版本回退\033[0m"
 		echo -e " 0 返回上级菜单"
 		echo "-----------------------------------------------"
 		read -p "请输入对应字母或数字 > " num
@@ -1022,28 +1038,6 @@ setserver() {
 			fi
 			unset url_id_new
 		;;
-		a)
-			release_type=stable
-			[ -z "$url_id" ] && url_id=101
-			saveserver
-		;;
-		b)
-			release_type=master
-			[ -z "$url_id" ] && url_id=101
-			saveserver
-		;;
-		c)
-			echo "-----------------------------------------------"
-			echo -e "\033[33m开发版未经过妥善测试，可能依然存在大量bug！！！\033[0m"
-			echo -e "\033[36m如果你没有足够的耐心或者测试经验，切勿使用此版本！\033[0m"
-			echo -e "请务必加入我们的讨论组：\033[32;4mhttps://t.me/ShellClash\033[0m"
-			read -p "是否依然切换到开发版？(1/0) > " res
-			if [ "$res" = 1 ];then
-				release_type=dev
-				[ -z "$url_id" ] && url_id=101
-				saveserver
-			fi
-		;;
 		d)
 			echo "-----------------------------------------------"
 			read -p "请输入个人源路径 > " update_url
@@ -1054,42 +1048,6 @@ setserver() {
 				url_id=''
 				release_type=''
 				saveserver
-			fi
-		;;
-		e)
-			echo "-----------------------------------------------"
-			if [ -n "$url_id" ] && [ "$url_id" -lt 200 ];then
-				echo -ne "\033[32m正在获取版本信息！\033[0m\r"
-				. "$CRASHDIR"/libs/web_get_lite.sh
-				web_get_lite https://github.com/juewuy/ShellCrash/tags | grep -o 'releases/tag/.*data'|awk -F '/' '{print $3}'|sed 's/".*//g' > "$TMPDIR"/tags
-				if [ "$?" = "0" ];then
-					echo -e "\033[31m请选择想要回退至的具体版本：\033[0m"
-					cat "$TMPDIR"/tags | awk '{print " "NR" "$1}'
-					echo -e " 0 返回上级菜单"
-					read -p "请输入对应数字 > " num
-					if [ -z "$num" -o "$num" = 0 ]; then
-						continue
-					elif [ $num -le $(cat "$TMPDIR"/tags 2>/dev/null | awk 'END{print NR}') ]; then
-						release_type=$(cat "$TMPDIR"/tags | awk '{print $1}' | sed -n "$num"p)
-						update_url=''
-						saveserver
-					else
-						echo "-----------------------------------------------"
-						errornum
-						sleep 1
-						continue
-					fi
-				else
-					echo "-----------------------------------------------"
-					echo -e "\033[31m版本回退信息获取失败，请尝试更换其他安装源！\033[0m"
-					sleep 1
-					continue
-				fi
-				rm -rf "$TMPDIR"/tags
-			else
-				echo -e "\033[31m当前源不支持版本回退，请尝试更换其他安装源！\033[0m"
-				sleep 1
-				continue
 			fi
 		;;
 		*)

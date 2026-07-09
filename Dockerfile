@@ -1,4 +1,4 @@
-FROM juewuy/shellcrash:latest
+FROM alpine:3.20
 
 ENV CRASHDIR=/etc/ShellCrash \
     SHELLCRASH_DATADIR=/data \
@@ -6,6 +6,31 @@ ENV CRASHDIR=/etc/ShellCrash \
     TZ=Asia/Shanghai
 
 USER root
+
+RUN set -eux; \
+    apk add --no-cache \
+        bash \
+        ca-certificates \
+        coreutils \
+        curl \
+        findutils \
+        gawk \
+        gzip \
+        iproute2 \
+        ipset \
+        iptables \
+        nftables \
+        openssl \
+        procps \
+        psmisc \
+        sed \
+        shadow \
+        tar \
+        tzdata \
+        unzip \
+        wget; \
+    addgroup -g 1000 shellcrash; \
+    adduser -D -H -u 1000 -G shellcrash shellcrash
 
 COPY init.sh menu.sh start.sh /etc/ShellCrash/
 COPY cn_ip.txt cn_ipv6.txt version README.md /etc/ShellCrash/

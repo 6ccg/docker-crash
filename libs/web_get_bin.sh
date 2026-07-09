@@ -1,6 +1,23 @@
 . "$CRASHDIR"/libs/web_get.sh
 
+is_shellcrash_program_asset() {
+    case "$1" in
+    version|ShellCrash.tar.gz|bin/version|public/servers.list)
+        return 0
+        ;;
+    esac
+    return 1
+}
+
+allow_upstream_program_downloads() {
+    [ "${SHELLCRASH_ALLOW_UPSTREAM_PROGRAM_DOWNLOADS:-}" = 1 ]
+}
+
 get_bin() { #专用于项目内部文件的下载
+    if is_shellcrash_program_asset "$2" && ! allow_upstream_program_downloads; then
+        [ "$3" = "echooff" ] || echo "ShellCrash程序文件下载已禁用：$2"
+        return 1
+    fi
     [ -z "$update_url" ] && update_url=https://testingcf.jsdelivr.net/gh/juewuy/ShellCrash@master
     if [ -n "$url_id" ]; then
 		[ -n "$release_type" ] && rt="$release_type" || rt=master

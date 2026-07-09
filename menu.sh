@@ -304,7 +304,7 @@ case "$1" in
 		echo -----------------------------------------
 		echo "在线求助：t.me/ShellClash"
 		echo "官方博客：juewuy.github.io"
-		echo "发布页面：github.com/juewuy/ShellCrash"
+		echo "发布页面：github.com/6ccg/docker-crash"
 		echo -----------------------------------------
     ;;
 esac

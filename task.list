@@ -8,11 +8,10 @@
 106#$CRASHDIR/task/task.sh web_save_auto#自动保存面板配置
 107#$CRASHDIR/task/task.sh ntp#自动同步ntp时间
 
-111#$CRASHDIR/task/task.sh update_core#自动更新内核
-112#$CRASHDIR/task/task.sh update_scripts#自动更新脚本
+#111#$CRASHDIR/task/task.sh update_core#自动更新内核
+#112#$CRASHDIR/task/task.sh update_scripts#自动更新脚本
 113#$CRASHDIR/task/task.sh update_mmdb#自动更新数据库文件
 
 121#$CRASHDIR/task/task.sh reset_firewall#重设透明路由防火墙
 122#sleep 70 && touch /etc/banner && reboot#重启路由设备-慎用
-
 
