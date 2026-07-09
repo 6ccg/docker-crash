@@ -95,6 +95,20 @@ core_webget(){
 	. "$CRASHDIR"/libs/web_get_bin.sh
 	. "$CRASHDIR"/libs/check_target.sh
 	if [ -z "$custcorelink" ];then
+		if [ "$crashcore" = meta ]; then
+			[ -n "$(echo $cpucore | grep mips)" ] && cpu_type=mips || cpu_type=$cpucore
+			webget "$TMPDIR"/mihomo_release.json https://api.github.com/repos/MetaCubeX/mihomo/releases/latest echooff
+			if [ "$?" = 0 ]; then
+				if [ "$cpu_type" = amd64 ]; then
+					custcorelink=$(grep "browser_download_url" "$TMPDIR"/mihomo_release.json | grep -E "linux-${cpu_type}-compatible.*\.gz" | head -n 1 | sed 's/.*"browser_download_url": "//;s/".*//')
+				fi
+				[ -z "$custcorelink" ] && custcorelink=$(grep "browser_download_url" "$TMPDIR"/mihomo_release.json | grep -E "linux-${cpu_type}.*\.gz" | head -n 1 | sed 's/.*"browser_download_url": "//;s/".*//')
+			fi
+			rm -f "$TMPDIR"/mihomo_release.json
+			[ -z "$custcorelink" ] && return 1
+		fi
+	fi
+	if [ -z "$custcorelink" ];then
 		[ -z "$zip_type" ] && zip_type='tar.gz'
 		[ "$systype" = 'container' ] && [ "$zip_type" = 'upx' ] && zip_type='tar.gz'
 		get_bin "$TMPDIR/Coretmp.$zip_type" "bin/$crashcore/${target}-linux-${cpucore}.$zip_type"
