@@ -44,9 +44,34 @@ wait_for_config() {
     done
 }
 
+wait_after_start_failure() {
+    status="$1"
+    echo "ShellCrash启动失败，容器将保持运行以便排查。"
+    echo "请使用 docker exec -it shellcrash /bin/sh 进入容器，检查 /tmp/ShellCrash/error.yaml 或 /tmp/ShellCrash/core_test.log。"
+    echo "修复配置或核心后，请执行 docker restart shellcrash。"
+    echo "$status" > /tmp/ShellCrash/start_failed.status 2>/dev/null || true
+    trap 'exit 0' INT TERM
+    while :; do
+        sleep 3600 &
+        wait "$!"
+    done
+}
+
+run_start() {
+    trap '"$CRASHDIR/start.sh" stop >/dev/null 2>&1 || true; exit 0' INT TERM
+    set +e
+    "$CRASHDIR/start.sh" start
+    status="$?"
+    set -e
+    wait_after_start_failure "$status"
+}
+
 if [ "$1" = "start" ] || [ "$1" = "stop" ] || [ "$1" = "restart" ] || [ "$1" = "debug" ] || [ "$1" = "init" ]; then
     if [ "$1" = "start" ] && ! has_bootstrap_config; then
         wait_for_config
+    fi
+    if [ "$1" = "start" ]; then
+        run_start
     fi
     exec "$CRASHDIR/start.sh" "$@"
 fi
